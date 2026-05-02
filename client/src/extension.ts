@@ -33,9 +33,12 @@ export function activate(context: ExtensionContext) {
 
 	// Options to control the language client
 	const clientOptions: LanguageClientOptions = {
-		documentSelector: [{ scheme: 'file', language: 'plaintext' }],
+		documentSelector: [
+			{ scheme: 'file', language: 'plaintext' },
+			{ scheme: 'file', pattern: '**/*.gm' }
+		],
 		synchronize: {
-			fileEvents: workspace.createFileSystemWatcher('**/*.txt')
+			fileEvents: workspace.createFileSystemWatcher('**/*.{txt,gm}')
 		}
 	};
 

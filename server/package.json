@@ -15,5 +15,15 @@
 		"vscode-languageserver": "^9.0.1",
 		"vscode-languageserver-textdocument": "^1.0.11"
 	},
-	"scripts": {}
+	"devDependencies": {
+		"@types/mocha": "^9.1.0",
+		"@types/node": "16.x",
+		"mocha": "^9.2.1",
+		"ts-node": "^10.7.0",
+		"typescript": "^4.8.4"
+	},
+	"scripts": {
+		"test": "mocha --require ts-node/register --timeout 10000 src/test/**/*.test.ts",
+		"test:watch": "mocha --require ts-node/register --timeout 10000 --watch src/test/**/*.test.ts"
+	}
 }

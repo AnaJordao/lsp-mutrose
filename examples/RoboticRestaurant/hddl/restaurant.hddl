@@ -1,0 +1,140 @@
+(define (domain restaurant)
+	(:types client table order - object
+			ChefRobot WaiterRobot CleanerRobot - robot)
+	(:predicates
+		(table-clean ?t - table)
+		(table-occupied ?t - table)
+    (table-has-dishes ?t - table)
+		(client-finished ?c - client)
+		(client-wants-order ?c - client)
+    (client-waiting-table ?c - client)
+    (order-cooked ?o - order)
+    (order-served ?o - order)
+	)
+	(:capabilities table-cleaning order-serving order-cooking order-taking client-guiding)
+	
+	(:task WipeTable :parameters (?r - CleanerRobot ?t - table))
+  (:method table-wiping
+		:parameters (?r - robot ?t - table)
+		:task (WipeTable ?r ?t)
+		:ordered-subtasks (and
+			(wipe-table ?r ?t)
+		)
+	)
+
+	(:task TakeOffDishes :parameters (?r - CleanerRobot ?t - table))
+  (:method table-cleaning
+		:parameters (?r - robot ?t - table)
+		:task (TakeOffDishes ?r ?t)
+		:ordered-subtasks (and
+			(clean-table ?r ?t)
+		)
+	)
+
+	(:task GuideClient :parameters (?r - WaiterRobot ?t - table ?c - client))
+  (:method client-guiding
+		:parameters (?r - robot ?t - table ?c - client)
+		:task (GuideClient ?r ?t ?c)
+		:ordered-subtasks (and
+			(guide-client ?r ?t ?c)
+		)
+	)
+
+	(:task TakeOrder :parameters (?r - WaiterRobot ?c - client))
+	(:method order-taking
+		:parameters (?r - robot ?c - client)
+		:task (TakeOrder ?r ?c)
+		:ordered-subtasks (and
+			(take-order ?r ?c)
+		)
+	)
+
+  (:task ServeOrder :parameters (?r - WaiterRobot ?o - order))
+	(:method order-serving
+		:parameters (?r - robot ?o - order)
+		:task (ServeOrder ?r ?o)
+		:ordered-subtasks (and
+			(serve-order ?r ?o)
+		)
+	)
+
+  (:task CookOrder :parameters (?r - ChefRobot ?o - order))
+  (:method order-cooking
+		:parameters (?r - robot ?o - order)
+		:task (CookOrder ?r ?o)
+		:ordered-subtasks (and
+			(cook-order ?r ?o)
+		)
+	)
+
+
+	
+	(:action wipe-table
+		:parameters (?r - robot ?t - table)
+		:required-capabilities (table-cleaning)
+		:precondition (and
+			(not (table-clean ?t))
+			(not (table-has-dishes ?t))
+			(not (table-occupied ?t))
+		)
+		:effect(and
+			(table-clean ?t)
+		)
+	)
+	(:action clean-table
+		:parameters (?r - robot ?t - table)
+		:required-capabilities (table-cleaning)
+		:precondition (and
+			(table-has-dishes ?t)
+			(not (table-occupied ?t))
+		)
+		:effect(and
+			(not (table-has-dishes ?t))
+		)
+	)
+  (:action guide-client
+		:parameters (?r - robot ?t - table ?c - client)
+		:required-capabilities (client-guiding)
+		:precondition (and
+      (client-waiting-table ?c)
+			(table-clean ?t)
+			(not (table-occupied ?t))
+		)
+		:effect(and
+      (not (client-waiting-table ?c))
+			(table-occupied ?t)
+		)
+	)
+  (:action take-order
+		:parameters (?r - robot ?c - client)
+		:required-capabilities (order-taking)
+		:precondition (and
+      (client-wants-order ?c)
+		)
+		:effect(and
+      (not (client-wants-order ?c))
+		)
+	)
+  (:action cook-order
+		:parameters (?r - robot ?o - order)
+		:required-capabilities (order-cooking)
+		:precondition (and
+      (not (order-cooked ?o))
+		)
+		:effect(and
+      (order-cooked ?o)
+		)
+	)
+  (:action serve-order
+		:parameters (?r - robot ?o - order)
+		:required-capabilities (order-serving)
+		:precondition (and
+      (order-cooked ?o)
+      (not (order-served ?o))
+		)
+		:effect(and
+      (order-served ?o)
+		)
+	)
+)
+	
