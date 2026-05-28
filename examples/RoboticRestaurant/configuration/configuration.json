@@ -1,0 +1,196 @@
+{
+  "world_db": {
+    "type": "file",
+    "file_type": "xml",
+    "path": "knowledge/world_db.xml",
+    "xml_root": "world_db"
+  },
+
+  "output": {
+    "output_type": "file",
+    "file_path": "output/task_output.json",
+    "file_type": "json"
+  },
+
+  "location_types": ["Table"],
+
+  "type_mapping": [
+    {
+      "hddl_type": "client",
+      "ocl_type": "Client"
+    },
+    {
+      "hddl_type": "table",
+      "ocl_type": "Table"
+    },
+    {
+      "hddl_type": "order",
+      "ocl_type": "Order"
+    }
+  ],
+
+  "var_mapping": [
+    {
+      "task_id": "AT1",
+      "map": [
+        {
+          "gm_var": "current_table",
+          "hddl_var": "?t"
+        }
+      ]
+    },
+    {
+      "task_id": "AT2",
+      "map": [
+        {
+          "gm_var": "current_table",
+          "hddl_var": "?t"
+        }
+      ]
+    },
+    {
+      "task_id": "AT3",
+      "map": [
+        {
+          "gm_var": "clients_waiting_for_table",
+          "hddl_var": "?c"
+        },
+        {
+          "gm_var": "table_reserved",
+          "hddl_var": "?t"
+        }
+      ]
+    },
+    {
+      "task_id": "AT4",
+      "map": [
+        {
+          "gm_var": "clients_waiting_for_table",
+          "hddl_var": "?c"
+        },
+        {
+          "gm_var": "free_table",
+          "hddl_var": "?t"
+        }
+      ]
+    },
+    {
+      "task_id": "AT5",
+      "map": [
+        {
+          "gm_var": "client",
+          "hddl_var": "?c"
+        }
+      ]
+    },
+    {
+      "task_id": "AT6",
+      "map": [
+        {
+          "gm_var": "order",
+          "hddl_var": "?o"
+        }
+      ]
+    },
+    {
+      "task_id": "AT7",
+      "map": [
+        {
+          "gm_var": "order",
+          "hddl_var": "?o"
+        }
+      ]
+    }
+  ],
+
+  "semantic_mapping": [
+    {
+      "type": "attribute",
+      "name": "clientIsWaitingTable",
+      "relates_to": "Client",
+      "belongs_to": "world_db",
+      "mapped_type": "predicate",
+      "map": {
+        "pred": "client-waiting-table",
+        "arg_sorts": ["client"]
+      }
+    },
+    {
+      "type": "attribute",
+      "name": "clientFinished",
+      "relates_to": "Client",
+      "belongs_to": "world_db",
+      "mapped_type": "predicate",
+      "map": {
+        "pred": "client-finished",
+        "arg_sorts": ["client"]
+      }
+    },
+    {
+      "type": "attribute",
+      "name": "clientWantsToOrder",
+      "relates_to": "Client",
+      "belongs_to": "world_db",
+      "mapped_type": "predicate",
+      "map": {
+        "pred": "client-wants-order",
+        "arg_sorts": ["client"]
+      }
+    },
+    {
+      "type": "attribute",
+      "name": "occupied",
+      "relates_to": "Table",
+      "belongs_to": "world_db",
+      "mapped_type": "predicate",
+      "map": {
+        "pred": "table-occupied",
+        "arg_sorts": ["table"]
+      }
+    },
+    {
+      "type": "attribute",
+      "name": "tableIsClean",
+      "relates_to": "Table",
+      "belongs_to": "world_db",
+      "mapped_type": "predicate",
+      "map": {
+        "pred": "table-clean",
+        "arg_sorts": ["table"]
+      }
+    },
+    {
+      "type": "attribute",
+      "name": "tableHasDishes",
+      "relates_to": "Table",
+      "belongs_to": "world_db",
+      "mapped_type": "predicate",
+      "map": {
+        "pred": "table-has-dishes",
+        "arg_sorts": ["table"]
+      }
+    },
+    {
+      "type": "attribute",
+      "name": "orderCooked",
+      "relates_to": "Order",
+      "belongs_to": "world_db",
+      "mapped_type": "predicate",
+      "map": {
+        "pred": "order-cooked",
+        "arg_sorts": ["order"]
+      }
+    },
+    {
+      "type": "attribute",
+      "name": "orderServed",
+      "relates_to": "Order",
+      "belongs_to": "world_db",
+      "mapped_type": "predicate",
+      "map": {
+        "pred": "order-served",
+        "arg_sorts": ["order"]
+      }
+    }
+  ]
+}
