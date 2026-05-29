@@ -12,15 +12,18 @@ import {
   Range,
   DefinitionParams,
   Hover,
-  MarkupKind
-} from 'vscode-languageserver/node';
+  MarkupKind,
+} from "vscode-languageserver/node";
 
-import { TextDocument } from 'vscode-languageserver-textdocument';
-import { DocumentSymbolParams, SymbolInformation, SymbolKind } from 'vscode-languageserver/node';
-import { Diagnostic, DiagnosticSeverity } from 'vscode-languageserver';
-import * as fs from 'fs';
-import * as path from 'path';
-
+import { TextDocument } from "vscode-languageserver-textdocument";
+import {
+  DocumentSymbolParams,
+  SymbolInformation,
+  SymbolKind,
+} from "vscode-languageserver/node";
+import { Diagnostic, DiagnosticSeverity } from "vscode-languageserver";
+import * as fs from "fs";
+import * as path from "path";
 
 const connection = createConnection(ProposedFeatures.all);
 const documents = new TextDocuments<TextDocument>(TextDocument);
@@ -28,12 +31,12 @@ const documents = new TextDocuments<TextDocument>(TextDocument);
 let workspaceFolders: string[] = [];
 
 function fileUriToPath(uri: string): string {
-  if (!uri.startsWith('file://')) {
+  if (!uri.startsWith("file://")) {
     return uri;
   }
 
-  let filePath = decodeURIComponent(uri.replace('file://', ''));
-  if (process.platform === 'win32' && filePath.startsWith('/')) {
+  let filePath = decodeURIComponent(uri.replace("file://", ""));
+  if (process.platform === "win32" && filePath.startsWith("/")) {
     filePath = filePath.substring(1);
   }
   return filePath;
@@ -42,33 +45,33 @@ function fileUriToPath(uri: string): string {
 // take the classes defined in the world knowledge xml of a given string
 function takeClassesFromWorldKnowledgeXml(xmlElement: string): string[] {
   const classes = new Set<string>();
-  const worldDbMatch = xmlElement.match(/<world_db[^>]*>([\s\S]*?)<\/world_db>/i);
+  const worldDbMatch = xmlElement.match(
+    /<world_db[^>]*>([\s\S]*?)<\/world_db>/i,
+  );
   const contentToParse = worldDbMatch ? worldDbMatch[1] : xmlElement;
   const classNameRegex = /<([A-Za-z_][\w-]*)\b[^>]*>[\s\S]*?<\/\1>/g;
 
   let match: RegExpExecArray | null;
   while ((match = classNameRegex.exec(contentToParse)) !== null) {
     const tagName = match[1];
-    if (tagName.toLowerCase() !== 'world_db') {
+    if (tagName.toLowerCase() !== "world_db") {
       classes.add(tagName);
     }
   }
   return Array.from(classes).sort();
 }
 
-// map every directory that can have a world knowledge xml and find all the classes 
+// map every directory that can have a world knowledge xml and find all the classes
 // defined in those, returning a sorted list with all the classes names
 function readWorldKnowledgeClassesForDocument(doc: TextDocument): string[] {
   const classes = new Set<string>();
   const gmFilePath = fileUriToPath(doc.uri);
   const gmDirName = path.dirname(gmFilePath);
-  const candidateDirs = [
-    path.resolve(gmDirName, '..', 'knowledge')
-  ];
+  const candidateDirs = [path.resolve(gmDirName, "..", "knowledge")];
 
   for (const workspaceFolder of workspaceFolders) {
-    candidateDirs.push(path.resolve(workspaceFolder, 'knowledge'));
-    candidateDirs.push(path.resolve(workspaceFolder, 'examples'));
+    candidateDirs.push(path.resolve(workspaceFolder, "knowledge"));
+    candidateDirs.push(path.resolve(workspaceFolder, "examples"));
   }
 
   for (const dirPath of candidateDirs) {
@@ -76,24 +79,28 @@ function readWorldKnowledgeClassesForDocument(doc: TextDocument): string[] {
       continue;
     }
 
-    if (path.basename(dirPath).toLowerCase() === 'examples') {
-      const exampleFolders = fs.readdirSync(dirPath, { withFileTypes: true })
-        .filter(entry => entry.isDirectory())
-        .map(entry => entry.name);
+    if (path.basename(dirPath).toLowerCase() === "examples") {
+      const exampleFolders = fs
+        .readdirSync(dirPath, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => entry.name);
 
       for (const exampleFolder of exampleFolders) {
-        const knowledgeDir = path.join(dirPath, exampleFolder, 'knowledge');
+        const knowledgeDir = path.join(dirPath, exampleFolder, "knowledge");
         if (!fs.existsSync(knowledgeDir)) {
           continue;
         }
 
-        const files = fs.readdirSync(knowledgeDir)
-          .filter(fileName => fileName.toLowerCase().endsWith('.xml'));
+        const files = fs
+          .readdirSync(knowledgeDir)
+          .filter((fileName) => fileName.toLowerCase().endsWith(".xml"));
         for (const fileName of files) {
           const fullPath = path.join(knowledgeDir, fileName);
           try {
-            const xmlContent = fs.readFileSync(fullPath, 'utf8');
-            for (const className of takeClassesFromWorldKnowledgeXml(xmlContent)) {
+            const xmlContent = fs.readFileSync(fullPath, "utf8");
+            for (const className of takeClassesFromWorldKnowledgeXml(
+              xmlContent,
+            )) {
               classes.add(className);
             }
           } catch {
@@ -108,13 +115,14 @@ function readWorldKnowledgeClassesForDocument(doc: TextDocument): string[] {
       continue;
     }
 
-    const files = fs.readdirSync(dirPath)
-      .filter(fileName => fileName.toLowerCase().endsWith('.xml'));
+    const files = fs
+      .readdirSync(dirPath)
+      .filter((fileName) => fileName.toLowerCase().endsWith(".xml"));
 
     for (const fileName of files) {
       const fullPath = path.join(dirPath, fileName);
       try {
-        const xmlContent = fs.readFileSync(fullPath, 'utf8');
+        const xmlContent = fs.readFileSync(fullPath, "utf8");
         for (const className of takeClassesFromWorldKnowledgeXml(xmlContent)) {
           classes.add(className);
         }
@@ -135,7 +143,7 @@ export interface VariableInfo {
 interface GmNode {
   id: string;
   text: string;
-  type: 'istar.Goal' | 'istar.Task';
+  type: "istar.Goal" | "istar.Task";
   x: number;
   y: number;
   customProperties: Record<string, string>;
@@ -156,7 +164,7 @@ interface GmFile {
 }
 
 interface FlowMetadata {
-  type: 'option' | 'input' | 'boolean';
+  type: "option" | "input" | "boolean";
   propertyName?: string;
   goTo?: string;
   requiresConfirmation?: boolean;
@@ -178,12 +186,12 @@ const flow: Record<string, Flow> = {
       { label: "Name", next: "goalName" },
       { label: "Goal Type", next: "goalType" },
     ],
-    metadata: {type: "option", propertyName: "istar.Goal"}
+    metadata: { type: "option", propertyName: "istar.Goal" },
   },
   goalName: {
     message: "Define Goal Name",
     options: [],
-    metadata: {type: "input", goTo: "goal", propertyName: "Name"},
+    metadata: { type: "input", goTo: "goal", propertyName: "Name" },
   },
   goalType: {
     message: "Define Goal Type",
@@ -192,7 +200,11 @@ const flow: Record<string, Flow> = {
       { label: "Query", next: "query" },
       { label: "Perform", next: "goalType" },
     ],
-    metadata: {type: "option", propertyName: "GoalType", requiresConfirmation: true },
+    metadata: {
+      type: "option",
+      propertyName: "GoalType",
+      requiresConfirmation: true,
+    },
   },
   achieve: {
     message: "Define the attributes",
@@ -202,22 +214,26 @@ const flow: Record<string, Flow> = {
       { label: "Monitors", next: "monitors" },
       { label: "Group", next: "group" },
     ],
-    metadata: {type: "option"}
+    metadata: { type: "option" },
   },
   achieveCondition: {
     message: "Define the achieve condition",
     options: [],
-    metadata: {type: "input", goTo: "achieve", propertyName: "AchieveCondition"},
+    metadata: {
+      type: "input",
+      goTo: "achieve",
+      propertyName: "AchieveCondition",
+    },
   },
   controls: {
     message: "Define the controls",
     options: [],
-    metadata: {type: "input", goTo: "achieve", propertyName: "Controls"},
+    metadata: { type: "input", goTo: "achieve", propertyName: "Controls" },
   },
   monitors: {
     message: "Define the monitors",
     options: [],
-    metadata: {type: "input", goTo: "achieve", propertyName: "Monitors"},
+    metadata: { type: "input", goTo: "achieve", propertyName: "Monitors" },
   },
   group: {
     message: "Define the group",
@@ -225,7 +241,7 @@ const flow: Record<string, Flow> = {
       { label: "True", next: "divisible" },
       { label: "False", next: "achieve" },
     ],
-    metadata: {type: "boolean", propertyName: "Group"},
+    metadata: { type: "boolean", propertyName: "Group" },
   },
   divisible: {
     message: "Define the divisible",
@@ -233,19 +249,21 @@ const flow: Record<string, Flow> = {
       { label: "True", next: "achieve" },
       { label: "False", next: "achieve" },
     ],
-    metadata: {type: "boolean", propertyName: "Divisible"},
+    metadata: { type: "boolean", propertyName: "Divisible" },
   },
   query: {
     message: "Define the attributes",
-    options: [
-      { label: "Queried Property", next: "queriedProperty" },
-    ],
-    metadata: {type: "option", goTo: "goalType"}
+    options: [{ label: "Queried Property", next: "queriedProperty" }],
+    metadata: { type: "option", goTo: "goalType" },
   },
   queriedProperty: {
     message: "Define the queried property",
     options: [],
-    metadata: {type: "input", goTo: "goalType", propertyName: "QueriedProperty"},
+    metadata: {
+      type: "input",
+      goTo: "goalType",
+      propertyName: "QueriedProperty",
+    },
   },
   task: {
     message: "Define Task",
@@ -253,12 +271,12 @@ const flow: Record<string, Flow> = {
       { label: "Name", next: "taskName" },
       { label: "Task Attributes", next: "taskAttributes" },
     ],
-    metadata: {type: "option", propertyName: "istar.Task"}
+    metadata: { type: "option", propertyName: "istar.Task" },
   },
   taskName: {
     message: "Define Task Name",
     options: [],
-    metadata: {type: "input", goTo: "task", propertyName: "Name"},
+    metadata: { type: "input", goTo: "task", propertyName: "Name" },
   },
   taskAttributes: {
     message: "Define the task attributes",
@@ -267,7 +285,7 @@ const flow: Record<string, Flow> = {
       { label: "Params", next: "params" },
       { label: "Robot Numbers", next: "robotNumbers" },
     ],
-    metadata: {type: "option" }
+    metadata: { type: "option" },
   },
   location: {
     message: "Choose an option to define the location",
@@ -277,32 +295,32 @@ const flow: Record<string, Flow> = {
       { label: "Type", next: "locationType" },
       { label: "Collection", next: "locationCollection" },
     ],
-    metadata: {type: "option" },
+    metadata: { type: "option" },
   },
   locationVariables: {
     message: "Choose the variables to define the location",
     options: [],
-    metadata: {type: "input", goTo: "task", propertyName: "Location"},
+    metadata: { type: "input", goTo: "task", propertyName: "Location" },
   },
   locationName: {
     message: "Choose the name to define the location",
     options: [],
-    metadata: {type: "input", goTo: "task", propertyName: "Location"},
+    metadata: { type: "input", goTo: "task", propertyName: "Location" },
   },
   locationType: {
     message: "Choose the type to define the location",
     options: [],
-    metadata: {type: "input", goTo: "task", propertyName: "Location"},
+    metadata: { type: "input", goTo: "task", propertyName: "Location" },
   },
   locationCollection: {
     message: "Choose the collection to define the location",
     options: [],
-    metadata: {type: "input", goTo: "task", propertyName: "Location"},
+    metadata: { type: "input", goTo: "task", propertyName: "Location" },
   },
   params: {
     message: "Define the params",
     options: [],
-    metadata: {type: "input", goTo: "task", propertyName: "Params"},
+    metadata: { type: "input", goTo: "task", propertyName: "Params" },
   },
   robotNumbers: {
     message: "Define the number of robots",
@@ -310,85 +328,88 @@ const flow: Record<string, Flow> = {
       { label: "Number", next: "robotSingleNumber" },
       { label: "Range", next: "robotNumRange" },
     ],
-    metadata: {type: "option" },
+    metadata: { type: "option" },
   },
   robotSingleNumber: {
     message: "Choose the range of number",
     options: [],
-    metadata: {type: "input", goTo: "task", propertyName: "RobotNumber"},
+    metadata: { type: "input", goTo: "task", propertyName: "RobotNumber" },
   },
   robotNumRange: {
     message: "Choose the range of number",
     options: [],
-    metadata: {type: "input", goTo: "task", propertyName: "RobotNumber"},
+    metadata: { type: "input", goTo: "task", propertyName: "RobotNumber" },
   },
 };
 
 // Property to context mapping for validation
 const propertyContextMap: Record<string, string[]> = {
-  "AchieveCondition": ["achieve"],
-  "Controls": ["achieve", "query"],
-  "Monitors": ["goal", "achieve", "query"],
-  "Group": ["achieve"],
-  "Divisible": ["achieve"],
-  "QueriedProperty": ["query"],
-  "Location": ["task"],
-  "Params": ["task"],
-  "RobotNumber": ["task"],
-  "Name": ["goal", "task"],
-  "GoalType": ["goal"]
+  AchieveCondition: ["achieve"],
+  Controls: ["achieve", "query"],
+  Monitors: ["goal", "achieve", "query"],
+  Group: ["achieve"],
+  Divisible: ["achieve"],
+  QueriedProperty: ["query"],
+  Location: ["task"],
+  Params: ["task"],
+  RobotNumber: ["task"],
+  Name: ["goal", "task"],
+  GoalType: ["goal"],
 };
 
 // Flow step to context mapping for completions
 const flowStepContextMap: Record<string, string[]> = {
   // Goal level steps (available in all goal contexts)
-  "goalName": ["goal", "achieve", "query"],
-  "goalType": ["goal"],
-  
+  goalName: ["goal", "achieve", "query"],
+  goalType: ["goal"],
+
   // Achieve goal steps
-  "achieveCondition": ["achieve"],
-  "controls": ["achieve", "query"],
-  "monitors": ["goal", "achieve", "query"],
-  "group": ["achieve"],
-  "divisible": ["achieve"],
-  
+  achieveCondition: ["achieve"],
+  controls: ["achieve", "query"],
+  monitors: ["goal", "achieve", "query"],
+  group: ["achieve"],
+  divisible: ["achieve"],
+
   // Query goal steps
-  "queriedProperty": ["query"],
-  
+  queriedProperty: ["query"],
+
   // Task steps (available in all task contexts)
-  "taskName": ["task"],
-  "taskAttributes": ["task"],
-  "location": ["task"],
-  "locationVariables": ["task"],
-  "locationName": ["task"],
-  "locationType": ["task"],
-  "locationCollection": ["task"],
-  "params": ["task"],
-  "robotNumbers": ["task"],
-  "robotSingleNumber": ["task"],
-  "robotNumRange": ["task"]
+  taskName: ["task"],
+  taskAttributes: ["task"],
+  location: ["task"],
+  locationVariables: ["task"],
+  locationName: ["task"],
+  locationType: ["task"],
+  locationCollection: ["task"],
+  params: ["task"],
+  robotNumbers: ["task"],
+  robotSingleNumber: ["task"],
+  robotNumRange: ["task"],
 };
 
 // Detect the context (goal, achieve, query, task) based on the current line and its surrounding lines in the document
-export function detectContextFromDocument(text: string, currentLine: number): { context: string; goalType: string } {
+export function detectContextFromDocument(
+  text: string,
+  currentLine: number,
+): { context: string; goalType: string } {
   const lines = text.split(/\r?\n/);
-  let context = '';
-  let goalType = '';
+  let context = "";
+  let goalType = "";
   let foundGoalStart = false;
   let foundTaskStart = false;
-  let pendingGoalType = '';
-  
+  let pendingGoalType = "";
+
   // Look backwards from current line to find context
   for (let i = currentLine; i >= 0; i--) {
     const line = lines[i];
-    
+
     // Checks if is goal or task
     const goalMatch = line.match(/istar\.Goal/);
     const taskMatch = line.match(/istar\.Task/);
-    
+
     if (taskMatch && !foundTaskStart && !foundGoalStart) {
       foundTaskStart = true;
-      context = 'task';
+      context = "task";
       break;
     } else if (goalMatch && !foundGoalStart && !foundTaskStart) {
       foundGoalStart = true;
@@ -397,25 +418,27 @@ export function detectContextFromDocument(text: string, currentLine: number): { 
         goalType = pendingGoalType;
         context = goalType;
       } else {
-        context = 'goal';
+        context = "goal";
       }
       break;
     }
-    
+
     // Checks GoalType - store it for when we find the Goal
-    const goalTypeMatch = line.match(/GoalType\s*[=:]\s*['"](Achieve|Query|Perform)['"]?/i);
+    const goalTypeMatch = line.match(
+      /GoalType\s*[=:]\s*['"](Achieve|Query|Perform)['"]?/i,
+    );
     if (goalTypeMatch && !pendingGoalType) {
       pendingGoalType = goalTypeMatch[1].toLowerCase();
     }
   }
-  
+
   return { context, goalType };
 }
 
 connection.onInitialize((params: InitializeParams): InitializeResult => {
   if (params.workspaceFolders) {
-    workspaceFolders = params.workspaceFolders.map(folder =>
-      fileUriToPath(folder.uri)
+    workspaceFolders = params.workspaceFolders.map((folder) =>
+      fileUriToPath(folder.uri),
     );
   }
 
@@ -424,7 +447,7 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
       textDocumentSync: TextDocumentSyncKind.Incremental,
       completionProvider: {
         resolveProvider: true,
-        triggerCharacters: [':']
+        triggerCharacters: [":"],
       },
       definitionProvider: true,
       hoverProvider: true,
@@ -433,340 +456,369 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
       workspace: {
         workspaceFolders: {
           supported: true,
-          changeNotifications: true
-        }
-      }
-    }
+          changeNotifications: true,
+        },
+      },
+    },
   };
 });
 
-
-documents.onDidOpen(e => {
-  indexDocument(e.document);     
+documents.onDidOpen((e) => {
+  indexDocument(e.document);
   validateTextDocument(e.document);
 });
 
 // Validate Goal Model
 function validateGmFile(text: string): Diagnostic[] {
-    const diagnostics: Diagnostic[] = [];
-    
-    try {
-        const gmData: GmFile = JSON.parse(text);
-        
-        // Validate all nodes in actors
-        if (gmData.actors && Array.isArray(gmData.actors)) {
-            for (const actor of gmData.actors) {
-                if (actor.nodes && Array.isArray(actor.nodes)) {
-                    for (const node of actor.nodes) {
-                        validateGmNode(node, text, diagnostics);
-                    }
-                }
-            }
+  const diagnostics: Diagnostic[] = [];
+
+  try {
+    const gmData: GmFile = JSON.parse(text);
+
+    // Validate all nodes in actors
+    if (gmData.actors && Array.isArray(gmData.actors)) {
+      for (const actor of gmData.actors) {
+        if (actor.nodes && Array.isArray(actor.nodes)) {
+          for (const node of actor.nodes) {
+            validateGmNode(node, text, diagnostics);
+          }
         }
-        
-        // Validate orphan nodes
-        if (gmData.orphans && Array.isArray(gmData.orphans)) {
-            for (const node of gmData.orphans) {
-                validateGmNode(node, text, diagnostics);
-            }
-        }
-        
-    } catch (error) {
-        // JSON parsing error
-        diagnostics.push({
-            severity: DiagnosticSeverity.Error,
-            range: {
-                start: { line: 0, character: 0 },
-                end: { line: 0, character: 10 }
-            },
-            message: `Invalid JSON format: ${error instanceof Error ? error.message : 'Unknown error'}`,
-            source: 'MutRoSe GM Validator'
-        });
+      }
     }
-    
-    return diagnostics;
+
+    // Validate orphan nodes
+    if (gmData.orphans && Array.isArray(gmData.orphans)) {
+      for (const node of gmData.orphans) {
+        validateGmNode(node, text, diagnostics);
+      }
+    }
+  } catch (error) {
+    // JSON parsing error
+    const pos = extractErrorPositionFromJsonParseError(error as SyntaxError);
+    diagnostics.push({
+      severity: DiagnosticSeverity.Error,
+      range: {
+        start: { line: pos.line, character: pos.character },
+        end: { line: pos.line, character: pos.character },
+      },
+      message: `Invalid JSON format: ${error instanceof Error ? error.message : "Unknown error"}`,
+      source: "MutRoSe GM Validator",
+    });
+  }
+
+  return diagnostics;
+}
+
+function extractErrorPositionFromJsonParseError(error: SyntaxError): {
+  line: number;
+  character: number;
+} {
+  const match = error.message.match(/line (\d+) column (\d+)/);
+  if (match) {
+    return {
+      line: parseInt(match[1], 10) - 1,
+      character: parseInt(match[2], 10) - 1,
+    };
+  }
+  return { line: 0, character: 0 };
 }
 
 // Validate individual goal or task node in .gm file
-function validateGmNode(node: GmNode, text: string, diagnostics: Diagnostic[]): void {
-    if (!node.customProperties) {
-        return;
+function validateGmNode(
+  node: GmNode,
+  text: string,
+  diagnostics: Diagnostic[],
+): void {
+  if (!node.customProperties) {
+    return;
+  }
+
+  const properties = node.customProperties;
+  const nodeType = node.type;
+
+  // Determine context based on node type
+  let context = "";
+  let goalType = "";
+
+  if (nodeType === "istar.Goal") {
+    context = "goal";
+    goalType = properties.GoalType?.toLowerCase() || "";
+    if (goalType) {
+      context = goalType;
     }
-    
-    const properties = node.customProperties;
-    const nodeType = node.type;
-    
-    // Determine context based on node type
-    let context = '';
-    let goalType = '';
-    
-    if (nodeType === 'istar.Goal') {
-        context = 'goal';
-        goalType = properties.GoalType?.toLowerCase() || '';
-        if (goalType) {
-            context = goalType;
-        }
-    } else if (nodeType === 'istar.Task') {
-        context = 'task';
+  } else if (nodeType === "istar.Task") {
+    context = "task";
+  }
+
+  // Find the position of this node's customProperties in the JSON text
+  const nodeIdPattern = new RegExp(`"id"\\s*:\\s*"${node.id}"`, "g");
+  const match = nodeIdPattern.exec(text);
+
+  if (!match) {
+    return;
+  }
+
+  // Validate each property in customProperties
+  for (const [propName] of Object.entries(properties)) {
+    // Skip standard properties
+    if (propName === "Description") {
+      continue;
     }
-    
-    // Find the position of this node's customProperties in the JSON text
-    const nodeIdPattern = new RegExp(`"id"\\s*:\\s*"${node.id}"`, 'g');
-    const match = nodeIdPattern.exec(text);
-    
-    if (!match) {
-        return;
+
+    // Find the property line in the JSON
+    const propPattern = new RegExp(`"${propName}"\\s*:\\s*"[^"]*"`, "g");
+    const propMatch = propPattern.exec(text);
+
+    if (!propMatch) {
+      continue;
     }
-    
-    // Validate each property in customProperties
-    for (const [propName] of Object.entries(properties)) {
-        // Skip standard properties
-        if (propName === 'Description') {
-            continue;
-        }
-        
-        // Find the property line in the JSON
-        const propPattern = new RegExp(`"${propName}"\\s*:\\s*"[^"]*"`, 'g');
-        const propMatch = propPattern.exec(text);
-        
-        if (!propMatch) {
-            continue;
-        }
-        
-        const propIndex = propMatch.index;
-        const propLines = text.substring(0, propIndex).split('\n');
-        const propLine = propLines.length - 1;
-        const propChar = propLines[propLines.length - 1].length;
-        
-        const validContexts = propertyContextMap[propName];
-        
-        // Validate property based on context
-        if (validContexts) {
-            let isValidContext = false;
-            
-            // Special handling for GoalType: always validate against "goal" context, not the derived goalType
-            if (propName === 'GoalType' && nodeType === 'istar.Goal') {
-                isValidContext = validContexts.includes('goal');
-            } else if (goalType) {
-                isValidContext = validContexts.includes(goalType);
-            } else {
-                isValidContext = validContexts.includes(context);
-            }
-            
-            if (!isValidContext) {
-                diagnostics.push({
-                    severity: DiagnosticSeverity.Error,
-                    range: {
-                        start: { line: propLine, character: propChar },
-                        end: { line: propLine, character: propChar + propName.length + 2 }
-                    },
-                    message: `Property '${propName}' is not valid for ${nodeType}${goalType ? ` with GoalType '${goalType}'` : ''}. Valid contexts: ${validContexts.join(', ')}`,
-                    source: 'MutRoSe GM Validator'
-                });
-            }
-        }
-        
-        // Check if query goals have any achieve-only properties
-        if (goalType === 'query') {
-            const achieveOnlyProps = ['AchieveCondition', 'Group', 'Divisible'];
-            if (achieveOnlyProps.includes(propName)) {
-                diagnostics.push({
-                    severity: DiagnosticSeverity.Error,
-                    range: {
-                        start: { line: propLine, character: propChar },
-                        end: { line: propLine, character: propChar + propName.length + 2 }
-                    },
-                    message: `Property '${propName}' can only be used with 'Achieve' goals, not 'Query' goals.`,
-                    source: 'MutRoSe GM Validator'
-                });
-            }
-        }
-        
-        // Check if achieve goals have any query-only properties
-        if (goalType === 'achieve') {
-            const queryOnlyProps = ['QueriedProperty'];
-            if (queryOnlyProps.includes(propName)) {
-                diagnostics.push({
-                    severity: DiagnosticSeverity.Error,
-                    range: {
-                        start: { line: propLine, character: propChar },
-                        end: { line: propLine, character: propChar + propName.length + 2 }
-                    },
-                    message: `Property '${propName}' can only be used with 'Query' goals, not 'Achieve' goals.`,
-                    source: 'MutRoSe GM Validator'
-                });
-            }
-        }
+
+    const propIndex = propMatch.index;
+    const propLines = text.substring(0, propIndex).split("\n");
+    const propLine = propLines.length - 1;
+    const propChar = propLines[propLines.length - 1].length;
+
+    const validContexts = propertyContextMap[propName];
+
+    // Validate property based on context
+    let isValidContext = false;
+    if (validContexts) {
+      // Special handling for GoalType: always validate against "goal" context, not the derived goalType
+      if (propName === "GoalType" && nodeType === "istar.Goal") {
+        isValidContext = validContexts.includes("goal");
+      } else if (goalType) {
+        isValidContext = validContexts.includes(goalType);
+      } else {
+        isValidContext = validContexts.includes(context);
+      }
     }
+
+    if (!isValidContext) {
+      const message =
+        validContexts && validContexts.length > 0
+          ? `Property '${propName}' is not valid for ${nodeType}${goalType ? ` with GoalType '${goalType}'` : ""}. Valid contexts: ${validContexts.join(", ")}`
+          : `Property '${propName}' is not valid for ${nodeType}${goalType ? ` with GoalType '${goalType}'` : ""}. No valid contexts found.`;
+      diagnostics.push({
+        severity: DiagnosticSeverity.Error,
+        range: {
+          start: { line: propLine, character: propChar },
+          end: { line: propLine, character: propChar + propName.length + 2 },
+        },
+        message: message,
+        source: "MutRoSe GM Validator",
+      });
+    }
+    // Check if query goals have any achieve-only properties
+    if (goalType === "query") {
+      const achieveOnlyProps = ["AchieveCondition", "Group", "Divisible"];
+      if (achieveOnlyProps.includes(propName)) {
+        diagnostics.push({
+          severity: DiagnosticSeverity.Error,
+          range: {
+            start: { line: propLine, character: propChar },
+            end: { line: propLine, character: propChar + propName.length + 2 },
+          },
+          message: `Property '${propName}' can only be used with 'Achieve' goals, not 'Query' goals.`,
+          source: "MutRoSe GM Validator",
+        });
+      }
+    }
+
+    // Check if achieve goals have any query-only properties
+    if (goalType === "achieve") {
+      const queryOnlyProps = ["QueriedProperty"];
+      if (queryOnlyProps.includes(propName)) {
+        diagnostics.push({
+          severity: DiagnosticSeverity.Error,
+          range: {
+            start: { line: propLine, character: propChar },
+            end: { line: propLine, character: propChar + propName.length + 2 },
+          },
+          message: `Property '${propName}' can only be used with 'Query' goals, not 'Achieve' goals.`,
+          source: "MutRoSe GM Validator",
+        });
+      }
+    }
+  }
 }
 
 // Validate the entire text document
-export async function validateTextDocument(textDocument: TextDocument): Promise<Diagnostic[]> {
-    const text = textDocument.getText();
-    const diagnostics: Diagnostic[] = [];
+export async function validateTextDocument(
+  textDocument: TextDocument,
+): Promise<Diagnostic[]> {
+  const text = textDocument.getText();
+  const diagnostics: Diagnostic[] = [];
 
-    // Check if this is a .gm file (JSON format)
-    if (textDocument.uri.endsWith('.gm')) {
-        return validateGmFile(text);
+  // Check if this is a .gm file (JSON format)
+  if (textDocument.uri.endsWith(".gm")) {
+    return validateGmFile(text);
+  }
+
+  const lines = text.split(/\r?\n/);
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Check for numbers at beginning of variable
+    const numberMatch = line.match(/\b\d\w*/);
+    if (numberMatch) {
+      diagnostics.push({
+        severity: DiagnosticSeverity.Error,
+        range: {
+          start: { line: i, character: numberMatch.index! },
+          end: {
+            line: i,
+            character: numberMatch.index! + numberMatch[0].length,
+          },
+        },
+        message: `Syntax error: numbers are not allowed at the beginning of the variable.`,
+        source: "MutRoSe",
+      });
     }
 
-    const lines = text.split(/\r?\n/);
-    
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
+    // Flow validation: detect context for current line
+    const { context: currentContext, goalType: currentGoalType } =
+      detectContextFromDocument(text, i);
 
-        // Check for numbers at beginning of variable
-        const numberMatch = line.match(/\b\d\w*/);
-        if (numberMatch) {
+    // Validate properties based on context
+    for (const [property, validContexts] of Object.entries(
+      propertyContextMap,
+    )) {
+      const propertyRegex = new RegExp(`\\b${property}\\b`, "i");
+      const propertyMatch = line.match(propertyRegex);
+
+      if (propertyMatch && currentContext) {
+        // Skip validation if this appears to be a property value, not a property name
+        const matchIndex = propertyMatch.index!;
+        const beforeMatch = line.substring(0, matchIndex);
+
+        const isLikelyValue = /[=:]\s*['"]*\s*$/.test(beforeMatch);
+
+        if (!isLikelyValue) {
+          const isValidContext =
+            validContexts.includes(currentContext) ||
+            (currentGoalType && validContexts.includes(currentGoalType));
+
+          if (!isValidContext) {
+            const startChar = matchIndex;
+            const endChar = startChar + property.length;
+
             diagnostics.push({
-                severity: DiagnosticSeverity.Error,
-                range: {
-                    start: { line: i, character: numberMatch.index! },
-                    end: { line: i, character: numberMatch.index! + numberMatch[0].length }
-                },
-                message: `Syntax error: numbers are not allowed at the beginning of the variable.`,
-                source: 'MutRoSe'
+              severity: DiagnosticSeverity.Error,
+              range: {
+                start: { line: i, character: startChar },
+                end: { line: i, character: endChar },
+              },
+              message: `Property '${property}' is not valid in ${currentContext}${currentGoalType ? ` (${currentGoalType})` : ""} context. Valid contexts: ${validContexts.join(", ")}`,
+              source: "MutRoSe Flow Validator",
             });
+          }
         }
-
-        // Flow validation: detect context for current line
-        const { context: currentContext, goalType: currentGoalType } = detectContextFromDocument(text, i);
-
-        // Validate properties based on context
-        for (const [property, validContexts] of Object.entries(propertyContextMap)) {
-            const propertyRegex = new RegExp(`\\b${property}\\b`, 'i');
-            const propertyMatch = line.match(propertyRegex);
-            
-            if (propertyMatch && currentContext) {
-                // Skip validation if this appears to be a property value, not a property name
-                const matchIndex = propertyMatch.index!;
-                const beforeMatch = line.substring(0, matchIndex);
-                
-                const isLikelyValue = /[=:]\s*['"]*\s*$/.test(beforeMatch);
-                
-                if (!isLikelyValue) {
-                    const isValidContext = validContexts.includes(currentContext) || 
-                                         (currentGoalType && validContexts.includes(currentGoalType));
-                    
-                    if (!isValidContext) {
-                        const startChar = matchIndex;
-                        const endChar = startChar + property.length;
-                        
-                        diagnostics.push({
-                            severity: DiagnosticSeverity.Error,
-                            range: {
-                                start: { line: i, character: startChar },
-                                end: { line: i, character: endChar }
-                            },
-                            message: `Property '${property}' is not valid in ${currentContext}${currentGoalType ? ` (${currentGoalType})` : ''} context. Valid contexts: ${validContexts.join(', ')}`,
-                            source: 'MutRoSe Flow Validator'
-                        });
-                    }
-                }
-            }
-        }
-
-        // Validate flow steps based on context
-        for (const [stepName, validContexts] of Object.entries(flowStepContextMap)) {
-            const stepRegex = new RegExp(`\\b${stepName}\\b`, 'i');
-            const stepMatch = line.match(stepRegex);
-            
-            if (stepMatch && currentContext) {
-                // Skip validation if this appears to be a property value, not a step name
-                const matchIndex = stepMatch.index!;
-                const beforeMatch = line.substring(0, matchIndex);
-                
-                const isLikelyValue = /[=:]\s*['"]*\s*$/.test(beforeMatch);
-                
-                if (!isLikelyValue) {
-                    let isValidContext = false;
-                    
-                    if (currentGoalType) {
-                        isValidContext = validContexts.includes(currentGoalType);
-                    } else {
-                        isValidContext = validContexts.includes(currentContext);
-                    }
-                    
-                    if (!isValidContext) {
-                        const startChar = matchIndex;
-                        const endChar = startChar + stepName.length;
-                        
-                        diagnostics.push({
-                            severity: DiagnosticSeverity.Error,
-                            range: {
-                                start: { line: i, character: startChar },
-                                end: { line: i, character: endChar }
-                            },
-                            message: `Flow step '${stepName}' is not valid in ${currentContext}${currentGoalType ? ` (${currentGoalType})` : ''} context. Valid contexts: ${validContexts.join(', ')}`,
-                            source: 'MutRoSe Flow Validator'
-                        });
-                    }
-                }
-            }
-        }
-
-        // Validate specific achieve-only properties in query context
-        if (currentGoalType === 'query') {
-            const achieveOnlyProps = ['AchieveCondition', 'Group', 'Divisible'];
-            for (const prop of achieveOnlyProps) {
-                const propMatch = line.match(new RegExp(`\\b${prop}\\b`, 'i'));
-                if (propMatch) {
-                    // Skip validation if this appears to be a property value, not a property name
-                    const matchIndex = propMatch.index!;
-                    const beforeMatch = line.substring(0, matchIndex);
-                    const isLikelyValue = /[=:]\s*['"]*\s*$/.test(beforeMatch);
-                    
-                    if (!isLikelyValue) {
-                        diagnostics.push({
-                            severity: DiagnosticSeverity.Error,
-                            range: {
-                                start: { line: i, character: matchIndex },
-                                end: { line: i, character: matchIndex + prop.length }
-                            },
-                            message: `Property '${prop}' can only be used with 'Achieve' goals, not 'Query' goals.`,
-                            source: 'MutRoSe Flow Validator'
-                        });
-                    }
-                }
-            }
-        }
-
-        // Validate query-only properties in achieve context
-        if (currentGoalType === 'achieve') {
-            const queryOnlyProps = ['QueriedProperty'];
-            for (const prop of queryOnlyProps) {
-                const propMatch = line.match(new RegExp(`\\b${prop}\\b`, 'i'));
-                if (propMatch) {
-                    // Skip validation if this appears to be a property value, not a property name
-                    const matchIndex = propMatch.index!;
-                    const beforeMatch = line.substring(0, matchIndex);
-                    const isLikelyValue = /[=:]\s*['"]*\s*$/.test(beforeMatch);
-                    
-                    if (!isLikelyValue) {
-                        diagnostics.push({
-                            severity: DiagnosticSeverity.Error,
-                            range: {
-                                start: { line: i, character: matchIndex },
-                                end: { line: i, character: matchIndex + prop.length }
-                            },
-                            message: `Property '${prop}' can only be used with 'Query' goals, not 'Achieve' goals.`,
-                            source: 'MutRoSe Flow Validator'
-                        });
-                    }
-                }
-            }
-        }
-
+      }
     }
 
-    return diagnostics;
+    // Validate flow steps based on context
+    for (const [stepName, validContexts] of Object.entries(
+      flowStepContextMap,
+    )) {
+      const stepRegex = new RegExp(`\\b${stepName}\\b`, "i");
+      const stepMatch = line.match(stepRegex);
+
+      if (stepMatch && currentContext) {
+        // Skip validation if this appears to be a property value, not a step name
+        const matchIndex = stepMatch.index!;
+        const beforeMatch = line.substring(0, matchIndex);
+
+        const isLikelyValue = /[=:]\s*['"]*\s*$/.test(beforeMatch);
+
+        if (!isLikelyValue) {
+          let isValidContext = false;
+
+          if (currentGoalType) {
+            isValidContext = validContexts.includes(currentGoalType);
+          } else {
+            isValidContext = validContexts.includes(currentContext);
+          }
+
+          if (!isValidContext) {
+            const startChar = matchIndex;
+            const endChar = startChar + stepName.length;
+
+            diagnostics.push({
+              severity: DiagnosticSeverity.Error,
+              range: {
+                start: { line: i, character: startChar },
+                end: { line: i, character: endChar },
+              },
+              message: `Flow step '${stepName}' is not valid in ${currentContext}${currentGoalType ? ` (${currentGoalType})` : ""} context. Valid contexts: ${validContexts.join(", ")}`,
+              source: "MutRoSe Flow Validator",
+            });
+          }
+        }
+      }
+    }
+
+    // Validate specific achieve-only properties in query context
+    if (currentGoalType === "query") {
+      const achieveOnlyProps = ["AchieveCondition", "Group", "Divisible"];
+      for (const prop of achieveOnlyProps) {
+        const propMatch = line.match(new RegExp(`\\b${prop}\\b`, "i"));
+        if (propMatch) {
+          // Skip validation if this appears to be a property value, not a property name
+          const matchIndex = propMatch.index!;
+          const beforeMatch = line.substring(0, matchIndex);
+          const isLikelyValue = /[=:]\s*['"]*\s*$/.test(beforeMatch);
+
+          if (!isLikelyValue) {
+            diagnostics.push({
+              severity: DiagnosticSeverity.Error,
+              range: {
+                start: { line: i, character: matchIndex },
+                end: { line: i, character: matchIndex + prop.length },
+              },
+              message: `Property '${prop}' can only be used with 'Achieve' goals, not 'Query' goals.`,
+              source: "MutRoSe Flow Validator",
+            });
+          }
+        }
+      }
+    }
+
+    // Validate query-only properties in achieve context
+    if (currentGoalType === "achieve") {
+      const queryOnlyProps = ["QueriedProperty"];
+      for (const prop of queryOnlyProps) {
+        const propMatch = line.match(new RegExp(`\\b${prop}\\b`, "i"));
+        if (propMatch) {
+          // Skip validation if this appears to be a property value, not a property name
+          const matchIndex = propMatch.index!;
+          const beforeMatch = line.substring(0, matchIndex);
+          const isLikelyValue = /[=:]\s*['"]*\s*$/.test(beforeMatch);
+
+          if (!isLikelyValue) {
+            diagnostics.push({
+              severity: DiagnosticSeverity.Error,
+              range: {
+                start: { line: i, character: matchIndex },
+                end: { line: i, character: matchIndex + prop.length },
+              },
+              message: `Property '${prop}' can only be used with 'Query' goals, not 'Achieve' goals.`,
+              source: "MutRoSe Flow Validator",
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return diagnostics;
 }
 
-documents.onDidChangeContent(change => {
-  indexDocument(change.document); 
-  validateTextDocument(change.document).then(diagnostics => {
+documents.onDidChangeContent((change) => {
+  indexDocument(change.document);
+  validateTextDocument(change.document).then((diagnostics) => {
     connection.sendDiagnostics({ uri: change.document.uri, diagnostics });
-  }); 
+  });
 });
 
 // Index variable definitions in the document for quick lookup during completions and hover
@@ -786,15 +838,15 @@ export function indexDocument(doc: TextDocument): Map<string, VariableInfo> {
         uri: doc.uri,
         range: Range.create(
           Position.create(lineIndex, 0),
-          Position.create(lineIndex, varName.length)
-        )
+          Position.create(lineIndex, varName.length),
+        ),
       };
 
       localVariableDefinitions.set(varName, { location: loc, value: varValue });
       variableDefinitions.set(varName, { location: loc, value: varValue });
     }
   }
-  
+
   return localVariableDefinitions;
 }
 
@@ -804,14 +856,14 @@ function extractControlsVariables(text: string): Map<string, string> {
   // Match all Controls fields: "Controls": "varName : Type"
   const controlsRegex = /"Controls"\s*:\s*"([^"]+)"/g;
   let match;
-  
+
   while ((match = controlsRegex.exec(text)) !== null) {
     const controlsValue = match[1];
     // Parse variable definitions (format: "varName : Type" or multiple comma-separated)
-    const varDefinitions = controlsValue.split(',').map(v => v.trim());
-    
+    const varDefinitions = controlsValue.split(",").map((v) => v.trim());
+
     for (const varDefinition of varDefinitions) {
-      const colonIndex = varDefinition.indexOf(':');
+      const colonIndex = varDefinition.indexOf(":");
       if (colonIndex > 0) {
         const varName = varDefinition.substring(0, colonIndex).trim();
         const varType = varDefinition.substring(colonIndex + 1).trim();
@@ -821,12 +873,15 @@ function extractControlsVariables(text: string): Map<string, string> {
       }
     }
   }
-  
+
   return variables;
 }
 
 // Get the next available goal and task numbers for their names
-function getNextGoalAndTaskNumbers(text: string): { nextGoalNumber: number; nextTaskNumber: number } {
+function getNextGoalAndTaskNumbers(text: string): {
+  nextGoalNumber: number;
+  nextTaskNumber: number;
+} {
   let maxGoalNumber = 0;
   let maxTaskNumber = 0;
 
@@ -850,31 +905,39 @@ function getNextGoalAndTaskNumbers(text: string): { nextGoalNumber: number; next
 
   return {
     nextGoalNumber: maxGoalNumber + 1,
-    nextTaskNumber: maxTaskNumber + 1
+    nextTaskNumber: maxTaskNumber + 1,
   };
 }
 
 // Determine the current node context (Goal or Task) and GoalType (Achieve, Query, Perform) based on the text before the cursor in the .gm file
 function getCurrentGmNodeContext(textBeforeCursor: string): {
-  nodeType: 'Goal' | 'Task' | null;
-  goalType: 'achieve' | 'query' | 'perform' | null;
+  nodeType: "Goal" | "Task" | null;
+  goalType: "achieve" | "query" | "perform" | null;
 } {
-  let nodeType: 'Goal' | 'Task' | null = null;
-  let goalType: 'achieve' | 'query' | 'perform' | null = null;
+  let nodeType: "Goal" | "Task" | null = null;
+  let goalType: "achieve" | "query" | "perform" | null = null;
 
   const typeRegex = /"type"\s*:\s*"istar\.(Goal|Task)"/g;
   let typeMatch: RegExpExecArray | null;
   while ((typeMatch = typeRegex.exec(textBeforeCursor)) !== null) {
-    nodeType = typeMatch[1] as 'Goal' | 'Task';
+    nodeType = typeMatch[1] as "Goal" | "Task";
   }
 
-  const customPropertiesIndex = textBeforeCursor.lastIndexOf('"customProperties"');
+  const customPropertiesIndex =
+    textBeforeCursor.lastIndexOf('"customProperties"');
   if (customPropertiesIndex >= 0) {
-    const currentCustomPropertiesText = textBeforeCursor.substring(customPropertiesIndex);
+    const currentCustomPropertiesText = textBeforeCursor.substring(
+      customPropertiesIndex,
+    );
     const goalTypeRegex = /"GoalType"\s*:\s*"(Achieve|Query|Perform)"/gi;
     let goalTypeMatch: RegExpExecArray | null;
-    while ((goalTypeMatch = goalTypeRegex.exec(currentCustomPropertiesText)) !== null) {
-      goalType = goalTypeMatch[1].toLowerCase() as 'achieve' | 'query' | 'perform';
+    while (
+      (goalTypeMatch = goalTypeRegex.exec(currentCustomPropertiesText)) !== null
+    ) {
+      goalType = goalTypeMatch[1].toLowerCase() as
+        | "achieve"
+        | "query"
+        | "perform";
     }
   }
 
@@ -884,14 +947,15 @@ function getCurrentGmNodeContext(textBeforeCursor: string): {
 // Extract existing custom property names from the current "customProperties" block to avoid suggesting duplicates in completions
 function getCurrentCustomPropertiesBlock(text: string, offset: number): string {
   const textBeforeCursor = text.substring(0, offset);
-  const customPropertiesIndex = textBeforeCursor.lastIndexOf('"customProperties"');
+  const customPropertiesIndex =
+    textBeforeCursor.lastIndexOf('"customProperties"');
   if (customPropertiesIndex < 0) {
-    return '';
+    return "";
   }
 
-  const openBraceIndex = text.indexOf('{', customPropertiesIndex);
+  const openBraceIndex = text.indexOf("{", customPropertiesIndex);
   if (openBraceIndex < 0) {
-    return '';
+    return "";
   }
 
   let depth = 0;
@@ -904,7 +968,7 @@ function getCurrentCustomPropertiesBlock(text: string, offset: number): string {
     if (inString) {
       if (escaped) {
         escaped = false;
-      } else if (ch === '\\') {
+      } else if (ch === "\\") {
         escaped = true;
       } else if (ch === '"') {
         inString = false;
@@ -917,12 +981,12 @@ function getCurrentCustomPropertiesBlock(text: string, offset: number): string {
       continue;
     }
 
-    if (ch === '{') {
+    if (ch === "{") {
       depth++;
       continue;
     }
 
-    if (ch === '}') {
+    if (ch === "}") {
       depth--;
       if (depth === 0) {
         return text.substring(openBraceIndex + 1, i);
@@ -934,9 +998,15 @@ function getCurrentCustomPropertiesBlock(text: string, offset: number): string {
 }
 
 // Extract existing custom property names from the current "customProperties" block to avoid suggesting duplicates in completions
-function getExistingCustomProperties(text: string, offset: number): Set<string> {
+function getExistingCustomProperties(
+  text: string,
+  offset: number,
+): Set<string> {
   const existingProperties = new Set<string>();
-  const currentCustomPropertiesText = getCurrentCustomPropertiesBlock(text, offset);
+  const currentCustomPropertiesText = getCurrentCustomPropertiesBlock(
+    text,
+    offset,
+  );
   if (!currentCustomPropertiesText) {
     return existingProperties;
   }
@@ -951,47 +1021,58 @@ function getExistingCustomProperties(text: string, offset: number): Set<string> 
 }
 
 // Get completion items for .gm (Goal Model)
-function getGmCompletionItems(doc: TextDocument, position: Position): CompletionItem[] {
+function getGmCompletionItems(
+  doc: TextDocument,
+  position: Position,
+): CompletionItem[] {
   const completionItems: CompletionItem[] = [];
   const text = doc.getText();
   const offset = doc.offsetAt(position);
   const textBeforeCursor = text.substring(0, offset);
-  
+
   // Check if we're in a nodes array or customProperties section
   const inNodesArray = /"nodes"\s*:\s*\[[^\]]*$/.test(textBeforeCursor);
-  const inCustomProperties = /"customProperties"\s*:\s*\{[^}]*$/.test(textBeforeCursor);
-  
+  const inCustomProperties = /"customProperties"\s*:\s*\{[^}]*$/.test(
+    textBeforeCursor,
+  );
+
   // Check if we're typing in the Monitors field value
   const inMonitorsValue = /"Monitors"\s*:\s*"[^"]*$/.test(textBeforeCursor);
 
   // Check if we're typing the type part of Controls: "varName : <here>"
-  const inControlsTypeValue = /"Controls"\s*:\s*"[^"]*:\s*[^"]*$/.test(textBeforeCursor);
-  
+  const inControlsTypeValue = /"Controls"\s*:\s*"[^"]*:\s*[^"]*$/.test(
+    textBeforeCursor,
+  );
+
   // Check if we're typing in AchieveCondition or QueriedProperty fields
-  const inAchieveConditionValue = /"AchieveCondition"\s*:\s*"[^"]*$/.test(textBeforeCursor);
-  const inQueriedPropertyValue = /"QueriedProperty"\s*:\s*"[^"]*$/.test(textBeforeCursor);
+  const inAchieveConditionValue = /"AchieveCondition"\s*:\s*"[^"]*$/.test(
+    textBeforeCursor,
+  );
+  const inQueriedPropertyValue = /"QueriedProperty"\s*:\s*"[^"]*$/.test(
+    textBeforeCursor,
+  );
   const inGoalTypeValue = /"GoalType"\s*:\s*"[^"]*$/.test(textBeforeCursor);
 
   if (inGoalTypeValue) {
     completionItems.push(
       {
-        label: 'Achieve',
+        label: "Achieve",
         kind: CompletionItemKind.EnumMember,
-        insertText: 'Achieve',
-        documentation: 'Goal type Achieve'
+        insertText: "Achieve",
+        documentation: "Goal type Achieve",
       },
       {
-        label: 'Query',
+        label: "Query",
         kind: CompletionItemKind.EnumMember,
-        insertText: 'Query',
-        documentation: 'Goal type Query'
+        insertText: "Query",
+        documentation: "Goal type Query",
       },
       {
-        label: 'Perform',
+        label: "Perform",
         kind: CompletionItemKind.EnumMember,
-        insertText: 'Perform',
-        documentation: 'Goal type Perform'
-      }
+        insertText: "Perform",
+        documentation: "Goal type Perform",
+      },
     );
     return completionItems;
   }
@@ -1003,20 +1084,20 @@ function getGmCompletionItems(doc: TextDocument, position: Position): Completion
         label: className,
         kind: CompletionItemKind.Class,
         insertText: className,
-        detail: 'Knowledge class',
-        documentation: `Class from knowledge folder: ${className}`
+        detail: "Knowledge class",
+        documentation: `Class from knowledge folder: ${className}`,
       });
       completionItems.push({
         label: `Sequence(${className})`,
         kind: CompletionItemKind.Class,
         insertText: `Sequence(${className})`,
-        detail: 'Knowledge class sequence',
-        documentation: `Sequence of ${className}`
+        detail: "Knowledge class sequence",
+        documentation: `Sequence of ${className}`,
       });
     }
     return completionItems;
   }
-  
+
   // If typing in Monitors, AchieveCondition, or QueriedProperty value, suggest variables from Controls
   if (inMonitorsValue || inAchieveConditionValue || inQueriedPropertyValue) {
     const controlsVars = extractControlsVariables(text);
@@ -1026,19 +1107,19 @@ function getGmCompletionItems(doc: TextDocument, position: Position): Completion
         kind: CompletionItemKind.Variable,
         insertText: varName,
         detail: `: ${type}`,
-        documentation: `Variable from Controls: ${varName} : ${type}`
+        documentation: `Variable from Controls: ${varName} : ${type}`,
       });
     });
     return completionItems;
   }
-  
+
   // Provide node templates only at node-array level (not inside customProperties)
   if (inNodesArray && !inCustomProperties) {
     const { nextGoalNumber, nextTaskNumber } = getNextGoalAndTaskNumbers(text);
 
     // Achieve Goal snippet
     completionItems.push({
-      label: 'Achieve Goal',
+      label: "Achieve Goal",
       kind: CompletionItemKind.Snippet,
       insertText: `{
   "id": "\${1:goal-id}",
@@ -1054,13 +1135,13 @@ function getGmCompletionItems(doc: TextDocument, position: Position): Completion
     "Monitors": "\${7:}"
   }
 }`,
-      documentation: 'Insert an Achieve Goal node with all attributes',
-      insertTextFormat: 2
+      documentation: "Insert an Achieve Goal node with all attributes",
+      insertTextFormat: 2,
     });
 
     // Query Goal snippet
     completionItems.push({
-      label: 'Query Goal',
+      label: "Query Goal",
       kind: CompletionItemKind.Snippet,
       insertText: `{
   "id": "\${1:goal-id}",
@@ -1076,13 +1157,13 @@ function getGmCompletionItems(doc: TextDocument, position: Position): Completion
     "Monitors": "\${7:}"
   }
 }`,
-      documentation: 'Insert a Query Goal node with all attributes',
-      insertTextFormat: 2
+      documentation: "Insert a Query Goal node with all attributes",
+      insertTextFormat: 2,
     });
 
     // Task snippet
     completionItems.push({
-      label: 'Task',
+      label: "Task",
       kind: CompletionItemKind.Snippet,
       insertText: `{
   "id": "\${1:task-id}",
@@ -1097,13 +1178,13 @@ function getGmCompletionItems(doc: TextDocument, position: Position): Completion
     "RobotNumber": \${7:1}
   }
 }`,
-      documentation: 'Insert a Task node with all attributes',
-      insertTextFormat: 2
+      documentation: "Insert a Task node with all attributes",
+      insertTextFormat: 2,
     });
 
     // Basic Goal (no GoalType specified)
     completionItems.push({
-      label: 'Basic Goal',
+      label: "Basic Goal",
       kind: CompletionItemKind.Snippet,
       insertText: `{
   "id": "\${1:goal-id}",
@@ -1117,11 +1198,11 @@ function getGmCompletionItems(doc: TextDocument, position: Position): Completion
     "Controls": "\${6:}"
   }
 }`,
-      documentation: 'Insert a basic Goal node',
-      insertTextFormat: 2
+      documentation: "Insert a basic Goal node",
+      insertTextFormat: 2,
     });
   }
-  
+
   // Provide property completions when in customProperties
   if (inCustomProperties) {
     const { nodeType, goalType } = getCurrentGmNodeContext(textBeforeCursor);
@@ -1131,126 +1212,131 @@ function getGmCompletionItems(doc: TextDocument, position: Position): Completion
         completionItems.push(item);
       }
     };
-    
-    if (nodeType === 'Goal') {
+
+    if (nodeType === "Goal") {
       // Add goal properties
-      if (!goalType || goalType === 'achieve') {
+      if (!goalType || goalType === "achieve") {
         addIfMissing({
-          label: 'GoalType',
+          label: "GoalType",
           kind: CompletionItemKind.Property,
           insertText: '"GoalType": "${1:Achieve}"',
           insertTextFormat: 2,
-          documentation: 'Goal type (Achieve, Query, or Perform)'
+          documentation: "Goal type (Achieve, Query, or Perform)",
         });
         addIfMissing({
-          label: 'AchieveCondition',
+          label: "AchieveCondition",
           kind: CompletionItemKind.Property,
           insertText: '"AchieveCondition": "${1:}"',
           insertTextFormat: 2,
-          documentation: 'Condition for Achieve goals'
+          documentation: "Condition for Achieve goals",
         });
         addIfMissing({
-          label: 'Group',
+          label: "Group",
           kind: CompletionItemKind.Property,
           insertText: '"Group": ${1:true}',
           insertTextFormat: 2,
-          documentation: 'Group property for Achieve goals'
+          documentation: "Group property for Achieve goals",
         });
         addIfMissing({
-          label: 'Divisible',
+          label: "Divisible",
           kind: CompletionItemKind.Property,
           insertText: '"Divisible": ${1:false}',
           insertTextFormat: 2,
-          documentation: 'Divisible property for Achieve goals'
+          documentation: "Divisible property for Achieve goals",
         });
       }
-      
-      if (!goalType || goalType === 'query') {
+
+      if (!goalType || goalType === "query") {
         addIfMissing({
-          label: 'QueriedProperty',
+          label: "QueriedProperty",
           kind: CompletionItemKind.Property,
           insertText: '"QueriedProperty": "${1:}"',
           insertTextFormat: 2,
-          documentation: 'Queried property for Query goals'
+          documentation: "Queried property for Query goals",
         });
       }
-      
+
       // Properties available to all goals
       addIfMissing({
-        label: 'Controls',
+        label: "Controls",
         kind: CompletionItemKind.Property,
         insertText: '"Controls": "${1:}"',
         insertTextFormat: 2,
-        documentation: 'Controls for goals'
+        documentation: "Controls for goals",
       });
       addIfMissing({
-        label: 'Monitors',
+        label: "Monitors",
         kind: CompletionItemKind.Property,
         insertText: '"Monitors": "${1:}"',
         insertTextFormat: 2,
-        documentation: 'Monitors for goals'
+        documentation: "Monitors for goals",
       });
-    } else if (nodeType === 'Task') {
+    } else if (nodeType === "Task") {
       // Add task properties
       addIfMissing({
-        label: 'Params',
+        label: "Params",
         kind: CompletionItemKind.Property,
         insertText: '"Params": "${1:}"',
         insertTextFormat: 2,
-        documentation: 'Task parameters'
+        documentation: "Task parameters",
       });
       addIfMissing({
-        label: 'Location',
+        label: "Location",
         kind: CompletionItemKind.Property,
         insertText: '"Location": "${1:}"',
         insertTextFormat: 2,
-        documentation: 'Task location'
+        documentation: "Task location",
       });
       addIfMissing({
-        label: 'RobotNumber',
+        label: "RobotNumber",
         kind: CompletionItemKind.Property,
         insertText: '"RobotNumber": ${1:1}',
         insertTextFormat: 2,
-        documentation: 'Number of robots for task'
+        documentation: "Number of robots for task",
       });
     }
-    
+
     // Description is available for all
     addIfMissing({
-      label: 'Description',
+      label: "Description",
       kind: CompletionItemKind.Property,
       insertText: '"Description": "${1:}"',
       insertTextFormat: 2,
-      documentation: 'Node description'
+      documentation: "Node description",
     });
   }
-  
+
   return completionItems;
 }
 
 export function getCompletionItems(
   doc: TextDocument,
   position: Position,
-  variableDefinitions: Map<string, VariableInfo>
+  variableDefinitions: Map<string, VariableInfo>,
 ): CompletionItem[] {
   const completionItems: CompletionItem[] = [];
-  
+
   // Add variable completions
   Array.from(variableDefinitions.keys()).forEach((name, i) => {
     completionItems.push({
       label: name,
       kind: CompletionItemKind.Variable,
-      data: i
+      data: i,
     });
   });
 
-  const { context, goalType } = detectContextFromDocument(doc.getText(), position.line);
-  
+  const { context, goalType } = detectContextFromDocument(
+    doc.getText(),
+    position.line,
+  );
+
   if (context) {
     // Add flow step completions based on current context
-    for (const [stepName, validContexts] of Object.entries(flowStepContextMap)) {
+    for (const [stepName, validContexts] of Object.entries(
+      flowStepContextMap,
+    )) {
       let isValidForContext = false;
-      
+
       // Check if flow step is valid for current context
       if (goalType) {
         // If we have a specific goal type (achieve/query), use that for validation
@@ -1259,7 +1345,7 @@ export function getCompletionItems(
         // Fall back to general context (goal/task)
         isValidForContext = validContexts.includes(context);
       }
-      
+
       if (isValidForContext) {
         const flowStep = flow[stepName];
         if (flowStep) {
@@ -1268,23 +1354,23 @@ export function getCompletionItems(
             kind: CompletionItemKind.Function,
             detail: flowStep.message,
             documentation: `Flow step: ${flowStep.message} (Valid in ${goalType || context} context)`,
-            data: completionItems.length
+            data: completionItems.length,
           });
         }
       }
     }
-    
+
     // Add goal type specific completions
-    if (context === 'goal' && !goalType) {
+    if (context === "goal" && !goalType) {
       // If we're in a goal context but no goal type defined yet, suggest goal types
-      const goalTypes = ['Achieve', 'Query', 'Perform'];
-      goalTypes.forEach(type => {
+      const goalTypes = ["Achieve", "Query", "Perform"];
+      goalTypes.forEach((type) => {
         completionItems.push({
           label: type,
           kind: CompletionItemKind.EnumMember,
           detail: `Goal Type: ${type}`,
           documentation: `Sets the goal type to ${type}`,
-          data: completionItems.length
+          data: completionItems.length,
         });
       });
     }
@@ -1300,7 +1386,7 @@ connection.onCompletion((params): CompletionItem[] => {
   }
 
   // Check if this is a .gm file
-  if (doc.uri.endsWith('.gm')) {
+  if (doc.uri.endsWith(".gm")) {
     return getGmCompletionItems(doc, params.position);
   }
 
@@ -1314,11 +1400,15 @@ connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
 
 connection.onDefinition((params: DefinitionParams) => {
   const doc = documents.get(params.textDocument.uri);
-  if (!doc) {return null;}
+  if (!doc) {
+    return null;
+  }
 
   const pos = params.position;
   const wordRange = getWordRangeAtPosition(doc, pos);
-  if (!wordRange) {return null;}
+  if (!wordRange) {
+    return null;
+  }
 
   const word = doc.getText(wordRange);
   const info = variableDefinitions.get(word);
@@ -1326,41 +1416,44 @@ connection.onDefinition((params: DefinitionParams) => {
   return info ? info.location : null;
 });
 
-connection.onDocumentSymbol((params: DocumentSymbolParams): SymbolInformation[] => {
-  const doc = documents.get(params.textDocument.uri);
-  if (!doc) {return [];}
-
-  const symbols: SymbolInformation[] = [];
-  const text = doc.getText();
-  const lines = text.split(/\r?\n/);
-
-  for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
-    const line = lines[lineIndex];
-    const match = line.match(/^([a-zA-Z_]\w*)\s*=/);
-    if (match) {
-      const varName = match[1];
-      symbols.push({
-        name: varName,
-        kind: SymbolKind.Variable,
-        location: {
-          uri: doc.uri,
-          range: Range.create(
-            Position.create(lineIndex, 0),
-            Position.create(lineIndex, varName.length)
-          )
-        }
-      });
+connection.onDocumentSymbol(
+  (params: DocumentSymbolParams): SymbolInformation[] => {
+    const doc = documents.get(params.textDocument.uri);
+    if (!doc) {
+      return [];
     }
-  }
 
-  return symbols;
-});
+    const symbols: SymbolInformation[] = [];
+    const text = doc.getText();
+    const lines = text.split(/\r?\n/);
 
+    for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+      const line = lines[lineIndex];
+      const match = line.match(/^([a-zA-Z_]\w*)\s*=/);
+      if (match) {
+        const varName = match[1];
+        symbols.push({
+          name: varName,
+          kind: SymbolKind.Variable,
+          location: {
+            uri: doc.uri,
+            range: Range.create(
+              Position.create(lineIndex, 0),
+              Position.create(lineIndex, varName.length),
+            ),
+          },
+        });
+      }
+    }
+
+    return symbols;
+  },
+);
 
 export function getHover(
   doc: TextDocument,
   position: Position,
-  variableDefinitions: Map<string, VariableInfo>
+  variableDefinitions: Map<string, VariableInfo>,
 ): Hover | null {
   const wordRange = getWordRangeAtPosition(doc, position);
   if (!wordRange) {
@@ -1368,13 +1461,13 @@ export function getHover(
   }
 
   const word = doc.getText(wordRange);
-  
+
   // Check if it's a variable definition
   const info = variableDefinitions.get(word);
   if (info) {
     const contents = {
       kind: MarkupKind.Markdown,
-      value: `\`${word} = ${info.value ?? '??'}\`\n\n**Defined in** [${info.location.uri.split('/').pop()}](${info.location.uri})`
+      value: `\`${word} = ${info.value ?? "??"}\`\n\n**Defined in** [${info.location.uri.split("/").pop()}](${info.location.uri})`,
     };
     return { contents };
   }
@@ -1382,16 +1475,26 @@ export function getHover(
   // Check if it's a flow property
   const validContexts = propertyContextMap[word];
   if (validContexts) {
-    const { context, goalType } = detectContextFromDocument(doc.getText(), position.line);
-    const isValidInCurrentContext = validContexts.includes(context) || 
-                                   (goalType && validContexts.includes(goalType));
-    
-    const contextInfo = context ? `\n\n**Current context:** ${context}${goalType ? ` (${goalType})` : ''}` : '';
-    const validityInfo = context ? (isValidInCurrentContext ? ' ✅' : ' ❌') : '';
-    
+    const { context, goalType } = detectContextFromDocument(
+      doc.getText(),
+      position.line,
+    );
+    const isValidInCurrentContext =
+      validContexts.includes(context) ||
+      (goalType && validContexts.includes(goalType));
+
+    const contextInfo = context
+      ? `\n\n**Current context:** ${context}${goalType ? ` (${goalType})` : ""}`
+      : "";
+    const validityInfo = context
+      ? isValidInCurrentContext
+        ? " ✅"
+        : " ❌"
+      : "";
+
     const contents = {
       kind: MarkupKind.Markdown,
-      value: `**Property:** \`${word}\`${validityInfo}\n\n**Valid contexts:** ${validContexts.join(', ')}${contextInfo}`
+      value: `**Property:** \`${word}\`${validityInfo}\n\n**Valid contexts:** ${validContexts.join(", ")}${contextInfo}`,
     };
     return { contents };
   }
@@ -1399,24 +1502,33 @@ export function getHover(
   // Check if it's a flow step name
   const flowStepContexts = flowStepContextMap[word];
   if (flowStepContexts) {
-    const { context, goalType } = detectContextFromDocument(doc.getText(), position.line);
+    const { context, goalType } = detectContextFromDocument(
+      doc.getText(),
+      position.line,
+    );
     let isValidInCurrentContext = false;
-    
+
     if (goalType) {
       isValidInCurrentContext = flowStepContexts.includes(goalType);
     } else {
       isValidInCurrentContext = flowStepContexts.includes(context);
     }
-    
-    const contextInfo = context ? `\n\n**Current context:** ${context}${goalType ? ` (${goalType})` : ''}` : '';
-    const validityInfo = context ? (isValidInCurrentContext ? ' ✅' : ' ❌') : '';
-    
+
+    const contextInfo = context
+      ? `\n\n**Current context:** ${context}${goalType ? ` (${goalType})` : ""}`
+      : "";
+    const validityInfo = context
+      ? isValidInCurrentContext
+        ? " ✅"
+        : " ❌"
+      : "";
+
     const flowStep = flow[word];
-    const stepMessage = flowStep ? flowStep.message : 'Unknown flow step';
-    
+    const stepMessage = flowStep ? flowStep.message : "Unknown flow step";
+
     const contents = {
       kind: MarkupKind.Markdown,
-      value: `**Flow Step:** \`${word}\`${validityInfo}\n\n**Message:** ${stepMessage}\n\n**Valid contexts:** ${flowStepContexts.join(', ')}${contextInfo}`
+      value: `**Flow Step:** \`${word}\`${validityInfo}\n\n**Message:** ${stepMessage}\n\n**Valid contexts:** ${flowStepContexts.join(", ")}${contextInfo}`,
     };
     return { contents };
   }
@@ -1424,10 +1536,10 @@ export function getHover(
   // Check if it's a flow step
   const flowStep = flow[word];
   if (flowStep) {
-    const metadataType = flowStep.metadata?.type || 'unknown';
+    const metadataType = flowStep.metadata?.type || "unknown";
     const contents = {
       kind: MarkupKind.Markdown,
-      value: `**Flow Step:** \`${word}\`\n\n**Message:** ${flowStep.message}\n\n**Type:** ${metadataType}\n\n**Options:** ${flowStep.options.length > 0 ? flowStep.options.map(opt => opt.label).join(', ') : 'None'}`
+      value: `**Flow Step:** \`${word}\`\n\n**Message:** ${flowStep.message}\n\n**Type:** ${metadataType}\n\n**Options:** ${flowStep.options.length > 0 ? flowStep.options.map((opt) => opt.label).join(", ") : "None"}`,
     };
     return { contents };
   }
@@ -1444,13 +1556,17 @@ connection.onHover((params): Hover | null => {
   return getHover(doc, params.position, variableDefinitions);
 });
 
-
-export function getWordRangeAtPosition(doc: TextDocument, pos: Position): Range | null {
+export function getWordRangeAtPosition(
+  doc: TextDocument,
+  pos: Position,
+): Range | null {
   const text = doc.getText();
   const offset = doc.offsetAt(pos);
   const start = findWordStart(text, offset);
   const end = findWordEnd(text, offset);
-  if (start < 0 || end < 0) {return null;}
+  if (start < 0 || end < 0) {
+    return null;
+  }
   return Range.create(doc.positionAt(start), doc.positionAt(end));
 }
 
