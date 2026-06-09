@@ -25,9 +25,24 @@
 				"panel": "dedicated",
 				"reveal": "never"
 			},
-			"problemMatcher": [
-				"$tsc-watch"
-			]
+			"problemMatcher": {
+				"owner": "typescript",
+				"fileLocation": ["relative", "${workspaceFolder}"] ,
+				"pattern": {
+					"regexp": "^(.*)\\((\\d+),(\\d+)\\): (error|warning) TS(\\d+): (.*)$",
+					"file": 1,
+					"line": 2,
+					"column": 3,
+					"severity": 4,
+					"code": 5,
+					"message": 6
+				},
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": "^.*Starting compilation in watch mode.*$",
+					"endsPattern": "^.*Watching for file changes\\.?$"
+				}
+			}
 		}
 	]
 }

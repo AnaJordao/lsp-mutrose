@@ -20,6 +20,7 @@ import { DocumentSymbolParams, SymbolInformation, SymbolKind } from 'vscode-lang
 import { Diagnostic, DiagnosticSeverity } from 'vscode-languageserver';
 import * as fs from 'fs';
 import * as path from 'path';
+import { validateAchieveCondition, validateQueriedProperty } from './oclParser';
 
 
 const connection = createConnection(ProposedFeatures.all);
@@ -519,24 +520,39 @@ function validateGmNode(node: GmNode, text: string, diagnostics: Diagnostic[]): 
     }
     
     // Validate each property in customProperties
+    const nodeText = text.substring(match.index);
     for (const [propName] of Object.entries(properties)) {
         // Skip standard properties
         if (propName === 'Description') {
             continue;
         }
         
-        // Find the property line in the JSON
+        // Find the property line inside this node's JSON slice, not the whole document.
         const propPattern = new RegExp(`"${propName}"\\s*:\\s*"[^"]*"`, 'g');
-        const propMatch = propPattern.exec(text);
+        const propMatch = propPattern.exec(nodeText);
         
         if (!propMatch) {
             continue;
         }
         
-        const propIndex = propMatch.index;
+        const propIndex = match.index + propMatch.index;
         const propLines = text.substring(0, propIndex).split('\n');
         const propLine = propLines.length - 1;
         const propChar = propLines[propLines.length - 1].length;
+
+        const valueStartInMatch = propMatch[0].indexOf(':');
+        const valueQuoteStart = valueStartInMatch >= 0 ? propMatch[0].indexOf('"', valueStartInMatch) : -1;
+        const valueQuoteEnd = valueQuoteStart >= 0 ? propMatch[0].lastIndexOf('"') : -1;
+        const valueStartIndex = valueQuoteStart >= 0 ? propIndex + valueQuoteStart + 1 : propIndex;
+        const valueEndIndex = valueQuoteEnd >= 0 ? propIndex + valueQuoteEnd : propIndex + propMatch[0].length;
+
+        const valueStartLines = text.substring(0, valueStartIndex).split('\n');
+        const valueLine = valueStartLines.length - 1;
+        const valueChar = valueStartLines[valueStartLines.length - 1].length;
+
+        const valueEndLines = text.substring(0, valueEndIndex).split('\n');
+        const valueEndLine = valueEndLines.length - 1;
+        const valueEndChar = valueEndLines[valueEndLines.length - 1].length;
         
         const validContexts = propertyContextMap[propName];
         
@@ -557,8 +573,8 @@ function validateGmNode(node: GmNode, text: string, diagnostics: Diagnostic[]): 
                 diagnostics.push({
                     severity: DiagnosticSeverity.Error,
                     range: {
-                        start: { line: propLine, character: propChar },
-                        end: { line: propLine, character: propChar + propName.length + 2 }
+                  start: { line: propLine, character: propChar },
+                  end: { line: propLine, character: propChar + propName.length + 2 }
                     },
                     message: `Property '${propName}' is not valid for ${nodeType}${goalType ? ` with GoalType '${goalType}'` : ''}. Valid contexts: ${validContexts.join(', ')}`,
                     source: 'MutRoSe GM Validator'
@@ -594,6 +610,42 @@ function validateGmNode(node: GmNode, text: string, diagnostics: Diagnostic[]): 
                     },
                     message: `Property '${propName}' can only be used with 'Query' goals, not 'Achieve' goals.`,
                     source: 'MutRoSe GM Validator'
+                });
+            }
+        }
+        
+        // Validate QueriedProperty format for Query goals
+        if (propName === 'QueriedProperty' && goalType === 'query') {
+            const value = properties[propName];
+            const queriedPropertyErrors = validateQueriedProperty(value);
+            for (const error of queriedPropertyErrors) {
+                diagnostics.push({
+                    severity: DiagnosticSeverity.Error,
+                    range: {
+                    start: { line: valueLine, character: valueChar },
+                    end: { line: valueEndLine, character: valueEndChar }
+                    },
+                    message: error,
+                    source: 'MutRoSe OCL Validator'
+                });
+            }
+        }
+        
+        // Validate AchieveCondition format for Achieve goals
+        if (propName === 'AchieveCondition' && goalType === 'achieve') {
+            const value = properties[propName];
+            const monitorVars = properties['Monitors'] || '';
+            const controlVars = properties['Controls'] || '';
+            const achieveErrors = validateAchieveCondition(value, monitorVars, controlVars);
+            for (const error of achieveErrors) {
+                diagnostics.push({
+                    severity: DiagnosticSeverity.Error,
+                    range: {
+                    start: { line: valueLine, character: valueChar },
+                    end: { line: valueEndLine, character: valueEndChar }
+                    },
+                    message: error,
+                    source: 'MutRoSe OCL Validator'
                 });
             }
         }
