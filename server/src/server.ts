@@ -28,6 +28,17 @@ const documents = new TextDocuments<TextDocument>(TextDocument);
 
 let workspaceFolders: string[] = [];
 
+interface KnowledgeClassInfo {
+  name: string;
+  attributes: string[];
+}
+
+interface OclAttributeCompletionContext {
+  variableName: string;
+  typeName: string;
+  attributePrefix: string;
+}
+
 function fileUriToPath(uri: string): string {
   if (!uri.startsWith("file://")) {
     return uri;
@@ -40,29 +51,50 @@ function fileUriToPath(uri: string): string {
   return filePath;
 }
 
-// take the classes defined in the world knowledge xml of a given string
-function takeClassesFromWorldKnowledgeXml(xmlElement: string): string[] {
-  const classes = new Set<string>();
+// take classes and their attributes defined in the world knowledge xml
+function takeClassInfoFromWorldKnowledgeXml(xmlElement: string): KnowledgeClassInfo[] {
+  const classes = new Map<string, Set<string>>();
   const worldDbMatch = xmlElement.match(
     /<world_db[^>]*>([\s\S]*?)<\/world_db>/i,
   );
   const contentToParse = worldDbMatch ? worldDbMatch[1] : xmlElement;
-  const classNameRegex = /<([A-Za-z_][\w-]*)\b[^>]*>[\s\S]*?<\/\1>/g;
+  const classBlockRegex = /<([A-Za-z_][\w-]*)\b[^>]*>([\s\S]*?)<\/\1>/g;
 
   let match: RegExpExecArray | null;
-  while ((match = classNameRegex.exec(contentToParse)) !== null) {
-    const tagName = match[1];
-    if (tagName.toLowerCase() !== "world_db") {
-      classes.add(tagName);
+  while ((match = classBlockRegex.exec(contentToParse)) !== null) {
+    const className = match[1];
+    const classContent = match[2];
+    if (className.toLowerCase() === 'world_db') {
+      continue;
+    }
+
+    if (!classes.has(className)) {
+      classes.set(className, new Set<string>());
+    }
+
+    // collect direct child tags as attributes (e.g. <occupied>, <tableIsClean>)
+    const attributeRegex = /<([A-Za-z_][\w-]*)\b[^>]*>/g;
+    let attrMatch: RegExpExecArray | null;
+    while ((attrMatch = attributeRegex.exec(classContent)) !== null) {
+      const attributeName = attrMatch[1];
+      if (attributeName.toLowerCase() !== className.toLowerCase()) {
+        classes.get(className)!.add(attributeName);
+      }
     }
   }
-  return Array.from(classes).sort();
+
+  return Array.from(classes.entries())
+    .map(([name, attributes]) => ({
+      name,
+      attributes: Array.from(attributes).sort(),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 // map every directory that can have a world knowledge xml and find all the classes
 // defined in those, returning a sorted list with all the classes names
-function readWorldKnowledgeClassesForDocument(doc: TextDocument): string[] {
-  const classes = new Set<string>();
+function readWorldKnowledgeClassesForDocument(doc: TextDocument): KnowledgeClassInfo[] {
+  const classes = new Map<string, Set<string>>();
   const gmFilePath = fileUriToPath(doc.uri);
   const gmDirName = path.dirname(gmFilePath);
   const candidateDirs = [path.resolve(gmDirName, "..", "knowledge")];
@@ -96,10 +128,16 @@ function readWorldKnowledgeClassesForDocument(doc: TextDocument): string[] {
           const fullPath = path.join(knowledgeDir, fileName);
           try {
             const xmlContent = fs.readFileSync(fullPath, "utf8");
-            for (const className of takeClassesFromWorldKnowledgeXml(
+            for (const classInfo of takeClassInfoFromWorldKnowledgeXml(
               xmlContent,
             )) {
-              classes.add(className);
+              if (!classes.has(classInfo.name)) {
+                classes.set(classInfo.name, new Set<string>());
+              }
+
+              for (const attribute of classInfo.attributes) {
+                classes.get(classInfo.name)!.add(attribute);
+              }
             }
           } catch {
             // Ignore malformed/unreadable knowledge files for completion fallback.
@@ -121,8 +159,14 @@ function readWorldKnowledgeClassesForDocument(doc: TextDocument): string[] {
       const fullPath = path.join(dirPath, fileName);
       try {
         const xmlContent = fs.readFileSync(fullPath, "utf8");
-        for (const className of takeClassesFromWorldKnowledgeXml(xmlContent)) {
-          classes.add(className);
+        for (const classInfo of takeClassInfoFromWorldKnowledgeXml(xmlContent)) {
+          if (!classes.has(classInfo.name)) {
+            classes.set(classInfo.name, new Set<string>());
+          }
+
+          for (const attribute of classInfo.attributes) {
+            classes.get(classInfo.name)!.add(attribute);
+          }
         }
       } catch {
         // Ignore malformed/unreadable knowledge files for completion fallback.
@@ -130,7 +174,124 @@ function readWorldKnowledgeClassesForDocument(doc: TextDocument): string[] {
     }
   }
 
-  return Array.from(classes).sort();
+  return Array.from(classes.entries())
+    .map(([name, attributes]) => ({
+      name,
+      attributes: Array.from(attributes).sort(),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function getKnowledgeClassAttributeIndexForDocument(doc: TextDocument): Map<string, Set<string>> {
+  const index = new Map<string, Set<string>>();
+  const classes = readWorldKnowledgeClassesForDocument(doc);
+
+  for (const classInfo of classes) {
+    index.set(classInfo.name, new Set(classInfo.attributes));
+  }
+
+  return index;
+}
+
+function normalizeKnowledgeTypeName(typeName: string): string {
+  const trimmed = typeName.trim();
+  const sequenceMatch = trimmed.match(/^Sequence\(([^)]+)\)$/i);
+  const unwrapped = sequenceMatch ? sequenceMatch[1].trim() : trimmed;
+  const dotIndex = unwrapped.lastIndexOf('.');
+  return dotIndex >= 0 ? unwrapped.substring(dotIndex + 1) : unwrapped;
+}
+
+function getFieldValueBeforeCursor(textBeforeCursor: string, fieldName: string): string | undefined {
+  const fieldMarker = `"${fieldName}"`;
+  const fieldIndex = textBeforeCursor.lastIndexOf(fieldMarker);
+  if (fieldIndex < 0) {
+    return undefined;
+  }
+
+  const fieldSlice = textBeforeCursor.slice(fieldIndex);
+  const colonIndex = fieldSlice.indexOf(':');
+  if (colonIndex < 0) {
+    return undefined;
+  }
+
+  const openingQuoteIndex = fieldSlice.indexOf('"', colonIndex);
+  if (openingQuoteIndex < 0) {
+    return undefined;
+  }
+
+  return fieldSlice.slice(openingQuoteIndex + 1);
+}
+
+function getOclAttributeCompletionContext(
+  textBeforeCursor: string,
+  fieldName: 'AchieveCondition' | 'QueriedProperty',
+): OclAttributeCompletionContext | undefined {
+  const fieldValue = getFieldValueBeforeCursor(textBeforeCursor, fieldName);
+  if (!fieldValue) {
+    return undefined;
+  }
+
+  const declarationPattern = fieldName === 'QueriedProperty'
+    ? /select\s*\(\s*([A-Za-z_][\w]*)\s*(?::\s*([A-Za-z_][\w.]*)\s*)?\|/i
+    : /forAll\s*\(\s*([A-Za-z_][\w]*)\s*(?::\s*([A-Za-z_][\w.]*)\s*)?\|/i;
+  const declarationMatch = fieldValue.match(declarationPattern);
+  if (!declarationMatch || !declarationMatch[2]) {
+    return undefined;
+  }
+
+  const variableName = declarationMatch[1];
+  const typeName = declarationMatch[2].trim();
+  const attributeAccessPattern = new RegExp(`(?:^|[^A-Za-z0-9_])${variableName}\\.([A-Za-z_][\\w]*)?$`);
+  const attributeAccessMatch = fieldValue.match(attributeAccessPattern);
+
+  return {
+    variableName,
+    typeName,
+    attributePrefix: attributeAccessMatch?.[1] ?? ''
+  };
+}
+
+function getAttributeCompletionItems(
+  doc: TextDocument,
+  position: Position,
+  textBeforeCursor: string,
+  fieldName: 'AchieveCondition' | 'QueriedProperty',
+): CompletionItem[] {
+  const classAttributes = getKnowledgeClassAttributeIndexForDocument(doc);
+  const context = getOclAttributeCompletionContext(textBeforeCursor, fieldName);
+  if (!context) {
+    return [];
+  }
+
+  const knownAttributes = classAttributes.get(normalizeKnowledgeTypeName(context.typeName));
+  if (!knownAttributes || knownAttributes.size === 0) {
+    return [];
+  }
+
+  const filteredAttributes = Array.from(knownAttributes)
+    .sort()
+    .filter(attribute => context.attributePrefix === '' || attribute.startsWith(context.attributePrefix));
+
+  if (filteredAttributes.length === 0) {
+    return [];
+  }
+
+  const replacementStart = Math.max(0, position.character - context.attributePrefix.length);
+  const replacementRange = Range.create(
+    Position.create(position.line, replacementStart),
+    position,
+  );
+
+  return filteredAttributes.map(attribute => ({
+    label: attribute,
+    kind: CompletionItemKind.Property,
+    detail: context.typeName,
+    documentation: `Attribute available on ${context.typeName}`,
+    textEdit: {
+      range: replacementRange,
+      newText: attribute,
+    },
+  }));
 }
 
 export interface VariableInfo {
@@ -445,7 +606,7 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
       textDocumentSync: TextDocumentSyncKind.Incremental,
       completionProvider: {
         resolveProvider: true,
-        triggerCharacters: [":"],
+        triggerCharacters: [":", "."],
       },
       definitionProvider: true,
       hoverProvider: true,
@@ -467,8 +628,10 @@ documents.onDidOpen((e) => {
 });
 
 // Validate Goal Model
-function validateGmFile(text: string): Diagnostic[] {
+function validateGmFile(doc: TextDocument): Diagnostic[] {
+  const text = doc.getText();
   const diagnostics: Diagnostic[] = [];
+  const classAttributes = getKnowledgeClassAttributeIndexForDocument(doc);
 
   try {
     const gmData: GmFile = JSON.parse(text);
@@ -478,7 +641,7 @@ function validateGmFile(text: string): Diagnostic[] {
       for (const actor of gmData.actors) {
         if (actor.nodes && Array.isArray(actor.nodes)) {
           for (const node of actor.nodes) {
-            validateGmNode(node, text, diagnostics);
+            validateGmNode(node, text, diagnostics, classAttributes);
           }
         }
       }
@@ -487,7 +650,7 @@ function validateGmFile(text: string): Diagnostic[] {
     // Validate orphan nodes
     if (gmData.orphans && Array.isArray(gmData.orphans)) {
       for (const node of gmData.orphans) {
-        validateGmNode(node, text, diagnostics);
+        validateGmNode(node, text, diagnostics, classAttributes);
       }
     }
   } catch (error) {
@@ -522,7 +685,12 @@ function extractErrorPositionFromJsonParseError(error: SyntaxError): {
 }
 
 // Validate individual goal or task node in .gm file
-function validateGmNode(node: GmNode, text: string, diagnostics: Diagnostic[]): void {
+function validateGmNode(
+  node: GmNode,
+  text: string,
+  diagnostics: Diagnostic[],
+  classAttributes: Map<string, Set<string>>,
+): void {
     if (!node.customProperties) {
         return;
     }
@@ -650,10 +818,11 @@ function validateGmNode(node: GmNode, text: string, diagnostics: Diagnostic[]): 
         // Validate QueriedProperty format for Query goals
         if (propName === 'QueriedProperty' && goalType === 'query') {
             const value = properties[propName];
-            const queriedPropertyErrors = validateQueriedProperty(value);
+          const queriedPropertyErrors = validateQueriedProperty(value, classAttributes);
             for (const error of queriedPropertyErrors) {
+            const isAttributeWarning = error.startsWith("Attribute '");
                 diagnostics.push({
-                    severity: DiagnosticSeverity.Error,
+              severity: isAttributeWarning ? DiagnosticSeverity.Warning : DiagnosticSeverity.Error,
                     range: {
                     start: { line: valueLine, character: valueChar },
                     end: { line: valueEndLine, character: valueEndChar }
@@ -669,10 +838,11 @@ function validateGmNode(node: GmNode, text: string, diagnostics: Diagnostic[]): 
             const value = properties[propName];
             const monitorVars = properties['Monitors'] || '';
             const controlVars = properties['Controls'] || '';
-            const achieveErrors = validateAchieveCondition(value, monitorVars, controlVars);
+          const achieveErrors = validateAchieveCondition(value, monitorVars, controlVars, classAttributes);
             for (const error of achieveErrors) {
+            const isAttributeWarning = error.startsWith("Attribute '");
                 diagnostics.push({
-                    severity: DiagnosticSeverity.Error,
+                    severity: isAttributeWarning ? DiagnosticSeverity.Warning : DiagnosticSeverity.Error,
                     range: {
                     start: { line: valueLine, character: valueChar },
                     end: { line: valueEndLine, character: valueEndChar }
@@ -694,7 +864,7 @@ export async function validateTextDocument(
 
   // Check if this is a .gm file (JSON format)
   if (textDocument.uri.endsWith(".gm")) {
-    return validateGmFile(text);
+    return validateGmFile(textDocument);
   }
 
   const lines = text.split(/\r?\n/);
@@ -1122,7 +1292,8 @@ function getGmCompletionItems(
 
   if (inControlsTypeValue) {
     const knowledgeClasses = readWorldKnowledgeClassesForDocument(doc);
-    for (const className of knowledgeClasses) {
+    for (const classInfo of knowledgeClasses) {
+      const className = classInfo.name;
       completionItems.push({
         label: className,
         kind: CompletionItemKind.Class,
@@ -1139,6 +1310,30 @@ function getGmCompletionItems(
       });
     }
     return completionItems;
+  }
+
+  if (inQueriedPropertyValue) {
+    const attributeItems = getAttributeCompletionItems(
+      doc,
+      position,
+      textBeforeCursor,
+      'QueriedProperty',
+    );
+    if (attributeItems.length > 0) {
+      return attributeItems;
+    }
+  }
+
+  if (inAchieveConditionValue) {
+    const attributeItems = getAttributeCompletionItems(
+      doc,
+      position,
+      textBeforeCursor,
+      'AchieveCondition',
+    );
+    if (attributeItems.length > 0) {
+      return attributeItems;
+    }
   }
 
   // If typing in Monitors, AchieveCondition, or QueriedProperty value, suggest variables from Controls

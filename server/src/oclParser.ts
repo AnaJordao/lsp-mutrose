@@ -88,7 +88,49 @@ function parseVariablesList(varsList: string): string[] {
     .filter(v => v.length > 0);
 }
 
-export function validateQueriedProperty(value: string): string[] {
+function normalizeTypeName(typeName: string): string {
+  const trimmed = typeName.trim();
+  const sequenceMatch = trimmed.match(/^Sequence\(([^)]+)\)$/i);
+  const unwrapped = sequenceMatch ? sequenceMatch[1].trim() : trimmed;
+  const dotIndex = unwrapped.lastIndexOf('.');
+  return dotIndex >= 0 ? unwrapped.substring(dotIndex + 1) : unwrapped;
+}
+
+function validateMemberAccessAgainstClass(
+  expression: string,
+  variableName: string,
+  typeName: string | undefined,
+  classAttributes?: Map<string, Set<string>>,
+): string[] {
+  const errors: string[] = [];
+  if (!typeName || !classAttributes || classAttributes.size === 0) {
+    return errors;
+  }
+
+  const normalizedType = normalizeTypeName(typeName);
+  const knownAttributes = classAttributes.get(normalizedType);
+  if (!knownAttributes || knownAttributes.size === 0) {
+    return errors;
+  }
+
+  const accessRegex = new RegExp(`\\b${variableName}\\.([A-Za-z_][A-Za-z0-9_]*)`, 'g');
+  const seen = new Set<string>();
+  let match: RegExpExecArray | null;
+
+  while ((match = accessRegex.exec(expression)) !== null) {
+    const attributeName = match[1];
+    if (knownAttributes.has(attributeName) || seen.has(attributeName)) {
+      continue;
+    }
+
+    seen.add(attributeName);
+    errors.push(`Attribute '${attributeName}' does not belong to class '${normalizedType}'.`);
+  }
+
+  return errors;
+}
+
+export function validateQueriedProperty(value: string, classAttributes?: Map<string, Set<string>>): string[] {
   const errors: string[] = [];
 
   if (!value || value.trim() === '') {
@@ -130,6 +172,7 @@ export function validateQueriedProperty(value: string): string[] {
 
   const queriedVar = getCollectionRefName(collectionText);
   const queryVar = identText;
+  const queryVarType = parsed.tree.typeRef()?.text?.trim();
 
 	// checks if the parser actually produced the collectionRef and IDENT nodes before it runs normal semantic checks
   if (queriedVar !== 'world_db' && !/^[a-zA-Z_][a-zA-Z0-9_.]*$/.test(queriedVar)) {
@@ -140,10 +183,17 @@ export function validateQueriedProperty(value: string): string[] {
     errors.push(`Invalid Query Variable '${queryVar}': must start with a letter or underscore and contain only letters, digits, or underscores.`);
   }
 
+  errors.push(...validateMemberAccessAgainstClass(trimmed, queryVar, queryVarType, classAttributes));
+
   return errors;
 }
 
-export function validateAchieveCondition(value: string, monitorVars: string, controlVars: string): string[] {
+export function validateAchieveCondition(
+  value: string,
+  monitorVars: string,
+  controlVars: string,
+  classAttributes?: Map<string, Set<string>>,
+): string[] {
   const errors: string[] = [];
 
   if (!value || value.trim() === '') {
@@ -188,6 +238,13 @@ export function validateAchieveCondition(value: string, monitorVars: string, con
 
     const iteratedVar = getCollectionRefName(collectionText);
     const iterationVar = iteratorText;
+    const iterationType = (() => {
+      try {
+        return forAll.typeRef()?.text?.trim();
+      } catch {
+        return undefined;
+      }
+    })();
 
     const monitorVarsList = parseVariablesList(monitorVars);
     if (!monitorVarsList.some(v => v === iteratedVar)) {
@@ -198,6 +255,8 @@ export function validateAchieveCondition(value: string, monitorVars: string, con
     if (!controlVarsList.some(v => v === iterationVar)) {
       errors.push(`Iteration Variable '${iterationVar}' must be declared in Controls property`);
     }
+
+    errors.push(...validateMemberAccessAgainstClass(trimmed, iterationVar, iterationType, classAttributes));
 
     return errors;
   }
