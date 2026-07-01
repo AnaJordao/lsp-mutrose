@@ -1,1 +1,1 @@
-{"root":["./src/oclparser.ts","./src/server.ts","./src/generated/ocllexer.ts","./src/generated/oclparser.ts","./src/generated/oclvisitor.ts"],"version":"5.9.2"}
+{"root":["./src/auxiliarfunctions.ts","./src/constants.ts","./src/helperfunctions.ts","./src/interfaces.ts","./src/oclparser.ts","./src/server.ts","./src/generated/ocllexer.ts","./src/generated/oclparser.ts","./src/generated/oclvisitor.ts"],"version":"5.9.2"}

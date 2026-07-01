@@ -5,8 +5,8 @@ import { Recognizer } from 'antlr4ts/Recognizer';
 import { Token } from 'antlr4ts/Token';
 import { LexerATNSimulator } from 'antlr4ts/atn/LexerATNSimulator';
 import { ParserATNSimulator } from 'antlr4ts/atn/ParserATNSimulator';
-import { OCLLexer } from './generated/OCLLexer';
-import { OCLParser, AchieveConditionContext, QueriedPropertyContext } from './generated/OCLParser';
+import { OCLLexer } from '../generated/OCLLexer';
+import { OCLParser, AchieveConditionContext, QueriedPropertyContext } from '../generated/OCLParser';
 
 interface OclErrorCollector<T> extends ANTLRErrorListener<T> {
   errors: string[];
