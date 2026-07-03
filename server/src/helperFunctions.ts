@@ -9,16 +9,16 @@ import {
 import { VariableInfo } from './interfaces';
 import {
 	auxiliarGetHover,
-	auxiliarIndexDocument,
-	auxiliarFileUriToPath,
+	auxiliarGetIndexDocument,
+	auxiliarGetFileUriToPath,
 	auxiliarGetCompletionItems,
-	auxiliarValidateTextDocument,
 	auxiliarGetGmCompletionItems,
 	auxiliarGetWordRangeAtPosition,
-} from './auxiliarFunctions/auxiliarFunctions';
+} from './auxiliarFunctions/getFunctions';
+import { auxiliarValidateTextDocument } from './auxiliarFunctions/validationFunctions';
 
 export function fileUriToPath(uri: string): string {
-  return auxiliarFileUriToPath(uri);
+  return auxiliarGetFileUriToPath(uri);
 }
 
 // Validate the entire text document
@@ -30,7 +30,7 @@ export async function validateTextDocument(
 
 // Index variable definitions in the document for quick lookup during completions and hover
 export function indexDocument(doc: TextDocument): Map<string, VariableInfo> {
-  return auxiliarIndexDocument(doc);
+  return auxiliarGetIndexDocument(doc);
 }
 
 // Get completion items for .gm (Goal Model)
