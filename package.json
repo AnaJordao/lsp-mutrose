@@ -10,6 +10,10 @@
   },
   "publisher": "vscode-samples",
   "categories": [],
+  "workspaces": [
+    "client",
+    "server"
+  ],
   "keywords": [
     "multi-root ready"
   ],
@@ -52,7 +56,9 @@
     "watch": "tsc -b -w",
     "lint": "eslint",
     "postinstall": "cd client && npm install && cd ../server && npm install && cd ..",
-    "test": "node scripts/test-runner.js",
+    "test": "node run-tests.ts",
+    "test:all": "npm run test --workspace=server && npm run test --workspace=client",
+    "test:client": "cd client && npm test",
     "test:server": "cd server && npm test"
   },
   "devDependencies": {
