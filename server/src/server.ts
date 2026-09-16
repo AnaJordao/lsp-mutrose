@@ -14,10 +14,10 @@ import {
   DefinitionParams,
   Hover,
 } from "vscode-languageserver/node";
-import { 
-  fileUriToPath, 
-  validateTextDocument, 
-  indexDocument, 
+import {
+  fileUriToPath,
+  validateTextDocument,
+  indexDocument,
   getGmCompletionItems,
   getCompletionItems,
   getHover,
@@ -29,7 +29,7 @@ const documents = new TextDocuments<TextDocument>(TextDocument);
 
 export let workspaceFolders: string[] = [];
 export const variableDefinitions = new Map<string, VariableInfo>();
- 
+
 connection.onInitialize((params: InitializeParams): InitializeResult => {
   if (params.workspaceFolders) {
     workspaceFolders = params.workspaceFolders.map((folder) =>
@@ -66,6 +66,7 @@ documents.onDidOpen((e) => {
 documents.onDidChangeContent((change) => {
   indexDocument(change.document);
   validateTextDocument(change.document).then((diagnostics) => {
+    console.log(`Sending diagnostics for ${change.document.uri}:`, diagnostics);
     connection.sendDiagnostics({ uri: change.document.uri, diagnostics });
   });
 });

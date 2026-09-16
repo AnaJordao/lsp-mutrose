@@ -1,5 +1,5 @@
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { Diagnostic } from 'vscode-languageserver';
+import { Diagnostic } from 'vscode-languageserver/node';
 import {
   CompletionItem,
   Position,
@@ -8,12 +8,12 @@ import {
 } from "vscode-languageserver/node";
 import { VariableInfo } from './interfaces';
 import {
-	auxiliarGetHover,
-	auxiliarGetIndexDocument,
-	auxiliarGetFileUriToPath,
-	auxiliarGetCompletionItems,
-	auxiliarGetGmCompletionItems,
-	auxiliarGetWordRangeAtPosition,
+  auxiliarGetHover,
+  auxiliarGetIndexDocument,
+  auxiliarGetFileUriToPath,
+  auxiliarGetCompletionItems,
+  auxiliarGetGmCompletionItems,
+  auxiliarGetWordRangeAtPosition,
 } from './auxiliarFunctions/getFunctions';
 import { auxiliarValidateTextDocument } from './auxiliarFunctions/validationFunctions';
 
@@ -23,9 +23,9 @@ export function fileUriToPath(uri: string): string {
 
 // Validate the entire text document
 export async function validateTextDocument(
-	textDocument: TextDocument,
+  textDocument: TextDocument,
 ): Promise<Diagnostic[]> {
-	return auxiliarValidateTextDocument(textDocument);
+  return auxiliarValidateTextDocument(textDocument);
 }
 
 // Index variable definitions in the document for quick lookup during completions and hover
@@ -42,11 +42,11 @@ export function getGmCompletionItems(
 }
 
 export function getCompletionItems(
-	doc: TextDocument,
-	position: Position,
-	variableDefinitions: Map<string, VariableInfo>,
+  doc: TextDocument,
+  position: Position,
+  variableDefinitions: Map<string, VariableInfo>,
 ): CompletionItem[] {
-	return auxiliarGetCompletionItems(doc, position, variableDefinitions);
+  return auxiliarGetCompletionItems(doc, position, variableDefinitions);
 }
 
 export function getHover(

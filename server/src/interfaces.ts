@@ -1,5 +1,5 @@
 import { Location, Position } from "vscode-languageserver/node";
-import { CompletionItem, Diagnostic, DiagnosticSeverity } from 'vscode-languageserver/lib/node/main';
+import { CompletionItem, Diagnostic, DiagnosticSeverity } from 'vscode-languageserver/node';
 
 export interface ErrorsTypes {
   jsonParsingError(pos: Position, error: unknown): Diagnostic[];
@@ -29,22 +29,22 @@ export interface ErrorsTypes {
   ): Diagnostic;
   propertyValidationInFlowError(
     line: number,
-		startChar: number,
-		endChar: number,
-		property: string,
-		currentContext: string,
-		currentGoalType: string | undefined,
-		validContexts: string[]
+    startChar: number,
+    endChar: number,
+    property: string,
+    currentContext: string,
+    currentGoalType: string | undefined,
+    validContexts: string[]
   ): Diagnostic;
   flowStepValidationError(
-		line: number,
-		startChar: number,
-		endChar: number,
-		stepName: string,
-		currentContext: string,
-		currentGoalType: string | undefined,
-		validContexts: string[]
-	): Diagnostic;
+    line: number,
+    startChar: number,
+    endChar: number,
+    stepName: string,
+    currentContext: string,
+    currentGoalType: string | undefined,
+    validContexts: string[]
+  ): Diagnostic;
 }
 
 export interface AttributeCompletionsTypes {
@@ -67,7 +67,7 @@ export interface AttributeCompletionsTypes {
   sequenceOfClass: (className: string) => CompletionItem;
   variable: (varName: string, type: string) => CompletionItem;
   variableDefinition: (name: string, data: number) => CompletionItem;
-  flowStep: (stepName: string, message: string, context: string, data: number)=> CompletionItem;
+  flowStep: (stepName: string, message: string, context: string, data: number) => CompletionItem;
 }
 
 export interface KnowledgeClassInfo {
@@ -76,7 +76,7 @@ export interface KnowledgeClassInfo {
 }
 
 export interface OclAttributeCompletionContext {
-	variableName: string;
+  variableName: string;
   typeName: string;
   attributePrefix: string;
 }

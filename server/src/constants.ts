@@ -1,8 +1,8 @@
 import { Flow, ErrorsTypes, AttributeCompletionsTypes } from './interfaces';
-import { Diagnostic, DiagnosticSeverity } from 'vscode-languageserver/lib/node/main';
+import { Diagnostic, DiagnosticSeverity } from 'vscode-languageserver/node';
 import {
-  CompletionItem,
-  CompletionItemKind,
+	CompletionItem,
+	CompletionItemKind,
 } from "vscode-languageserver/node";
 
 export const selectBodyRegex = /select\s*\(\s*([A-Za-z_][\w]*)\s*(?::\s*([A-Za-z_][\w.]*)\s*)?\|/i;
@@ -16,52 +16,52 @@ export const errorsSourceTypes: Record<string, string> = {
 
 export const errors: ErrorsTypes = {
 	jsonParsingError: (pos: any, error: any): Diagnostic[] => [{
-				severity: DiagnosticSeverity.Error,
-				range: {
-					start: { line: pos.line, character: pos.character },
-					end: { line: pos.line, character: pos.character },
-				},
-				message: `Invalid JSON format: ${error instanceof Error ? error.message : "Unknown error"}`,
-				source: errorsSourceTypes.mutroseGMValidator,
+		severity: DiagnosticSeverity.Error,
+		range: {
+			start: { line: pos.line, character: pos.character },
+			end: { line: pos.line, character: pos.character },
+		},
+		message: `Invalid JSON format: ${error instanceof Error ? error.message : "Unknown error"}`,
+		source: errorsSourceTypes.mutroseGMValidator,
 	}],
 	wrongPropertyContextError: (
-		propLine: number, 
-		propChar: number, 
-		propName: string, 
-		nodeType: string, 
-		goalType: string | undefined, 
+		propLine: number,
+		propChar: number,
+		propName: string,
+		nodeType: string,
+		goalType: string | undefined,
 		validContexts: string[]
 	): Diagnostic => ({
-				severity: DiagnosticSeverity.Error,
-				range: {
-				start: { line: propLine, character: propChar },
-				end: { line: propLine, character: propChar + propName.length + 2 }
-					},
-				message: `Property '${propName}' is not valid for ${nodeType}${goalType ? ` with GoalType '${goalType}'` : ''}. Valid contexts: ${validContexts.join(', ')}`,
-				source: errorsSourceTypes.mutroseGMValidator
-			}),
+		severity: DiagnosticSeverity.Error,
+		range: {
+			start: { line: propLine, character: propChar },
+			end: { line: propLine, character: propChar + propName.length + 2 }
+		},
+		message: `Property '${propName}' is not valid for ${nodeType}${goalType ? ` with GoalType '${goalType}'` : ''}. Valid contexts: ${validContexts.join(', ')}`,
+		source: errorsSourceTypes.mutroseGMValidator
+	}),
 	propertyCanOnlyBeUsedInSpecificGoalTypeError: (
-		propLine: number, 
-		propChar: number, 
-		propName: string, 
-		rightGoalType: string, 
+		propLine: number,
+		propChar: number,
+		propName: string,
+		rightGoalType: string,
 		wrongGoalType: string,
 		source: string,
 	): Diagnostic => ({
-			severity: DiagnosticSeverity.Error,
-			range: {
-					start: { line: propLine, character: propChar },
-					end: { line: propLine, character: propChar + propName.length + 2 }
-			},
-			message: `Property '${propName}' can only be used with '${rightGoalType}' goals, not '${wrongGoalType}' goals.`,
-			source: source
+		severity: DiagnosticSeverity.Error,
+		range: {
+			start: { line: propLine, character: propChar },
+			end: { line: propLine, character: propChar + propName.length + 2 }
+		},
+		message: `Property '${propName}' can only be used with '${rightGoalType}' goals, not '${wrongGoalType}' goals.`,
+		source: source
 	}),
 	formatValidationError: (
 		severity: DiagnosticSeverity,
-		valueLine: number, 
-		valueChar: number, 
-		valueEndLine: number, 
-		valueEndChar: number, 
+		valueLine: number,
+		valueChar: number,
+		valueEndLine: number,
+		valueEndChar: number,
 		error: string
 	): Diagnostic => ({
 		severity: severity,
@@ -163,7 +163,7 @@ export const attributeCompletions: AttributeCompletionsTypes = {
 		insertTextFormat: 2,
 		documentation: "Queried property for Query goals",
 	},
-	perform:{
+	perform: {
 		label: "Perform",
 		kind: CompletionItemKind.EnumMember,
 		insertText: "Perform",
@@ -233,9 +233,9 @@ export const attributeCompletions: AttributeCompletionsTypes = {
 		documentation: `Variable from Controls: ${varName} : ${type}`,
 	}),
 	variableDefinition: (name: string, data: number): CompletionItem => ({
-			label: name,
-			kind: CompletionItemKind.Variable,
-			data: data,
+		label: name,
+		kind: CompletionItemKind.Variable,
+		data: data,
 	}),
 	flowStep: (stepName: string, message: string, context: string, data: number): CompletionItem => ({
 		label: stepName,
@@ -248,9 +248,9 @@ export const attributeCompletions: AttributeCompletionsTypes = {
 
 export const snippets: Record<string, (nextGoalNumber: number) => CompletionItem> = {
 	achieveGoalSnippet: (nextGoalNumber: number): CompletionItem => ({
-			label: "Achieve Goal",
-			kind: CompletionItemKind.Snippet,
-			insertText: `{
+		label: "Achieve Goal",
+		kind: CompletionItemKind.Snippet,
+		insertText: `{
 	"id": "\${1:goal-id}",
 	"text": "\${2:G${nextGoalNumber}: Goal Name}",
 	"type": "istar.Goal",
@@ -264,13 +264,13 @@ export const snippets: Record<string, (nextGoalNumber: number) => CompletionItem
 		"Monitors": "\${7:}"
 	}
 }`,
-			documentation: "Insert an Achieve Goal node with all attributes",
-			insertTextFormat: 2,
-		}),
+		documentation: "Insert an Achieve Goal node with all attributes",
+		insertTextFormat: 2,
+	}),
 	queryGoalSnippet: (nextGoalNumber: number): CompletionItem => ({
-			label: "Query Goal",
-			kind: CompletionItemKind.Snippet,
-			insertText: `{
+		label: "Query Goal",
+		kind: CompletionItemKind.Snippet,
+		insertText: `{
 	"id": "\${1:goal-id}",
 	"text": "\${2:G${nextGoalNumber}: Goal Name}",
 	"type": "istar.Goal",
@@ -284,13 +284,13 @@ export const snippets: Record<string, (nextGoalNumber: number) => CompletionItem
 		"Monitors": "\${7:}"
 	}
 }`,
-			documentation: "Insert a Query Goal node with all attributes",
-			insertTextFormat: 2,
-		}),
+		documentation: "Insert a Query Goal node with all attributes",
+		insertTextFormat: 2,
+	}),
 	basicGoalSnippet: (nextGoalNumber: number): CompletionItem => ({
-			label: "Basic Goal",
-			kind: CompletionItemKind.Snippet,
-			insertText: `{
+		label: "Basic Goal",
+		kind: CompletionItemKind.Snippet,
+		insertText: `{
 	"id": "\${1:goal-id}",
 	"text": "\${2:G${nextGoalNumber}: Goal Name}",
 	"type": "istar.Goal",
@@ -302,13 +302,13 @@ export const snippets: Record<string, (nextGoalNumber: number) => CompletionItem
 		"Controls": "\${6:}"
 	}
 }`,
-			documentation: "Insert a basic Goal node",
-			insertTextFormat: 2,
-		}),
+		documentation: "Insert a basic Goal node",
+		insertTextFormat: 2,
+	}),
 	taskSnippet: (nextTaskNumber: number): CompletionItem => ({
-			label: "Task",
-			kind: CompletionItemKind.Snippet,
-			insertText: `{
+		label: "Task",
+		kind: CompletionItemKind.Snippet,
+		insertText: `{
 	"id": "\${1:task-id}",
 	"text": "\${2:A${nextTaskNumber}: Task Name}",
 	"type": "istar.Task",
@@ -321,9 +321,9 @@ export const snippets: Record<string, (nextGoalNumber: number) => CompletionItem
 		"RobotNumber": \${7:1}
 	}
 }`,
-			documentation: "Insert a Task node with all attributes",
-			insertTextFormat: 2,
-		}),
+		documentation: "Insert a Task node with all attributes",
+		insertTextFormat: 2,
+	}),
 };
 
 export const flow: Record<string, Flow> = {

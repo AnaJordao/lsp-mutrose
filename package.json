@@ -52,10 +52,9 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -b",
+    "compile": "cd ./server && npm install && npm run antlr:generate && tsc -b",
     "watch": "tsc -b -w",
     "lint": "eslint",
-    "postinstall": "cd client && npm install && cd ../server && npm install && cd ..",
     "test": "node run-tests.ts",
     "test:all": "npm run test --workspace=server && npm run test --workspace=client",
     "test:client": "cd client && npm test",

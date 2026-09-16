@@ -5,8 +5,8 @@ import { Recognizer } from 'antlr4ts/Recognizer';
 import { Token } from 'antlr4ts/Token';
 import { LexerATNSimulator } from 'antlr4ts/atn/LexerATNSimulator';
 import { ParserATNSimulator } from 'antlr4ts/atn/ParserATNSimulator';
-import { OCLLexer } from '../generated/OCLLexer';
-import { OCLParser, AchieveConditionContext, QueriedPropertyContext } from '../generated/OCLParser';
+import { OCLLexer } from '../generated/src/grammar/OCLLexer';
+import { OCLParser, AchieveConditionContext, QueriedPropertyContext } from '../generated/src/grammar/OCLParser';
 
 interface OclErrorCollector<T> extends ANTLRErrorListener<T> {
   errors: string[];
@@ -144,9 +144,9 @@ export function validateQueriedProperty(value: string, classAttributes?: Map<str
   const collectionText = parsed.tree.collectionRef()?.text ?? '';
   const identText = parsed.tree.IDENT()?.text ?? '';
 
-	// only allow semantic checks if the structure is correct enough to extract collectionRef and IDENT, otherwise return generic syntax error
+  // only allow semantic checks if the structure is correct enough to extract collectionRef and IDENT, otherwise return generic syntax error
   if (parsed.errors.length > 0) {
-  
+
     const extraneousMatch = parsed.errors
       .map(e => e.match(/extraneous input '([^']+)' expecting IDENT/i))
       .find(m => !!m) as RegExpMatchArray | undefined;
@@ -174,7 +174,7 @@ export function validateQueriedProperty(value: string, classAttributes?: Map<str
   const queryVar = identText;
   const queryVarType = parsed.tree.typeRef()?.text?.trim();
 
-	// checks if the parser actually produced the collectionRef and IDENT nodes before it runs normal semantic checks
+  // checks if the parser actually produced the collectionRef and IDENT nodes before it runs normal semantic checks
   if (queriedVar !== 'world_db' && !/^[a-zA-Z_][a-zA-Z0-9_.]*$/.test(queriedVar)) {
     errors.push(`Invalid Queried Variable '${queriedVar}': must be 'world_db' or a valid identifier (start with a letter or underscore; may contain letters, digits, underscores, or dots).`);
   }
