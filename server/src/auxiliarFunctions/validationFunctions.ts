@@ -104,11 +104,15 @@ function auxiliarValidateGmNode(
 			}
 
 			if (!isValidContext) {
-				diagnostics.push(errors.wrongPropertyContextError(propLine, propChar, propName, nodeType, goalType || undefined, validContexts));
+				const diag = errors.wrongPropertyContextError(propLine, propChar, propName, nodeType, goalType || undefined, validContexts);
+				diag.data = { nodeId: node.id };
+				diagnostics.push(diag);
 				continue;
 			}
 		} else {
-			diagnostics.push(errors.wrongPropertyContextError(propLine, propChar, propName, nodeType, goalType || undefined, []));
+			const diag = errors.wrongPropertyContextError(propLine, propChar, propName, nodeType, goalType || undefined, []);
+			diag.data = { nodeId: node.id };
+			diagnostics.push(diag);
 			continue;
 		}
 
@@ -116,7 +120,9 @@ function auxiliarValidateGmNode(
 		if (goalType === 'query') {
 			const achieveOnlyProps = ['AchieveCondition', 'Group', 'Divisible'];
 			if (achieveOnlyProps.includes(propName)) {
-				diagnostics.push(errors.propertyCanOnlyBeUsedInSpecificGoalTypeError(propLine, propChar, propName, 'Achieve', 'Query', errorsSourceTypes.mutroseGMValidator));
+				const diag = errors.propertyCanOnlyBeUsedInSpecificGoalTypeError(propLine, propChar, propName, 'Achieve', 'Query', errorsSourceTypes.mutroseGMValidator);
+				diag.data = { nodeId: node.id };
+				diagnostics.push(diag);
 			}
 		}
 
@@ -124,7 +130,9 @@ function auxiliarValidateGmNode(
 		if (goalType === 'achieve') {
 			const queryOnlyProps = ['QueriedProperty'];
 			if (queryOnlyProps.includes(propName)) {
-				diagnostics.push(errors.propertyCanOnlyBeUsedInSpecificGoalTypeError(propLine, propChar, propName, 'Query', 'Achieve', errorsSourceTypes.mutroseGMValidator));
+				const diag = errors.propertyCanOnlyBeUsedInSpecificGoalTypeError(propLine, propChar, propName, 'Query', 'Achieve', errorsSourceTypes.mutroseGMValidator);
+				diag.data = { nodeId: node.id };
+				diagnostics.push(diag);
 			}
 		}
 
@@ -134,14 +142,16 @@ function auxiliarValidateGmNode(
 			const queriedPropertyErrors = validateQueriedProperty(value, classAttributes);
 			for (const error of queriedPropertyErrors) {
 				const isAttributeWarning = error.startsWith("Attribute '");
-				diagnostics.push(errors.formatValidationError(
+				const diag = errors.formatValidationError(
 					isAttributeWarning ? DiagnosticSeverity.Warning : DiagnosticSeverity.Error,
 					valueLine,
 					valueChar,
 					valueEndLine,
 					valueEndChar,
 					error
-				));
+				);
+				diag.data = { nodeId: node.id };
+				diagnostics.push(diag);
 			}
 		}
 
@@ -153,14 +163,16 @@ function auxiliarValidateGmNode(
 			const achieveErrors = validateAchieveCondition(value, monitorVars, controlVars, classAttributes);
 			for (const error of achieveErrors) {
 				const isAttributeWarning = error.startsWith("Attribute '");
-				diagnostics.push(errors.formatValidationError(
+				const diag = errors.formatValidationError(
 					isAttributeWarning ? DiagnosticSeverity.Warning : DiagnosticSeverity.Error,
 					valueLine,
 					valueChar,
 					valueEndLine,
 					valueEndChar,
 					error
-				));
+				);
+				diag.data = { nodeId: node.id };
+				diagnostics.push(diag);
 			}
 		}
 	}

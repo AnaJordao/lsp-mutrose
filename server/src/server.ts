@@ -60,7 +60,10 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
 
 documents.onDidOpen((e) => {
   indexDocument(e.document);
-  validateTextDocument(e.document);
+  validateTextDocument(e.document).then((diagnostics) => {
+    console.log(`Sending diagnostics for ${e.document.uri}:`, diagnostics);
+    connection.sendDiagnostics({ uri: e.document.uri, diagnostics });
+  });
 });
 
 documents.onDidChangeContent((change) => {
