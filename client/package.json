@@ -9,6 +9,9 @@
     "type": "git",
     "url": "https://github.com/Microsoft/vscode-extension-samples"
   },
+  "scripts": {
+    "test": "jest"
+  },
   "engines": {
     "vscode": "^1.100.0"
   },
@@ -16,7 +19,10 @@
     "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
     "@types/vscode": "^1.100.0",
-    "@vscode/test-electron": "^2.3.9"
+    "@vscode/test-electron": "^2.3.9",
+    "jest": "^30.4.2",
+    "ts-jest": "^29.4.12"
   }
 }

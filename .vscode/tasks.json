@@ -1,29 +1,48 @@
 {
-  "version": "2.0.0",
-  "tasks": [
-    {
-      "type": "npm",
-      "script": "compile",
-      "group": "build",
-      "presentation": {
-        "panel": "dedicated",
-        "reveal": "never"
-      },
-      "problemMatcher": ["$tsc"]
-    },
-    {
-      "type": "npm",
-      "script": "watch",
-      "isBackground": true,
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      },
-      "presentation": {
-        "panel": "dedicated",
-        "reveal": "never"
-      },
-      "problemMatcher": ["$tsc-watch"]
-    }
-  ]
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "npm",
+			"script": "compile",
+			"group": "build",
+			"presentation": {
+				"panel": "dedicated",
+				"reveal": "never"
+			},
+			"problemMatcher": [
+				"$tsc"
+			]
+		},
+		{
+			"type": "npm",
+			"script": "watch",
+			"isBackground": true,
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"presentation": {
+				"panel": "dedicated",
+				"reveal": "never"
+			},
+			"problemMatcher": {
+				"owner": "typescript",
+				"fileLocation": ["relative", "${workspaceFolder}"] ,
+				"pattern": {
+					"regexp": "^(.*)\\((\\d+),(\\d+)\\): (error|warning) TS(\\d+): (.*)$",
+					"file": 1,
+					"line": 2,
+					"column": 3,
+					"severity": 4,
+					"code": 5,
+					"message": 6
+				},
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": "^.*Starting compilation in watch mode.*$",
+					"endsPattern": "^.*Watching for file changes\\.?$"
+				}
+			}
+		}
+	]
 }

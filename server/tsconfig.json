@@ -1,17 +1,29 @@
 {
   "compilerOptions": {
+    "types": [
+      "node",
+      "jest"
+    ],
     "target": "es2020",
-    "lib": ["es2020"],
-    "module": "commonjs",
-    "moduleResolution": "node",
+    "lib": [
+      "es2020"
+    ],
+    "module": "Node16",
+    "moduleResolution": "node16",
     "sourceMap": true,
     "strict": true,
     "outDir": "out",
     "rootDir": "src",
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "composite": true
   },
-  "include": ["src"],
-  "exclude": ["node_modules", ".vscode-test"]
+  "include": [
+    "src"
+  ],
+  "exclude": [
+    "node_modules",
+    ".vscode-test"
+  ]
 }
