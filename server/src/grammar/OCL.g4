@@ -1,7 +1,7 @@
 grammar OCL;
 
 queriedProperty
-    : collectionRef ARROW SELECT LPAREN IDENT (COLON typeRef)? PIPE boolExpr RPAREN EOF
+    : collectionRef ARROW SELECT LPAREN IDENT (COLON typeRef)? PIPE boolExpr? RPAREN EOF
     ;
 
 achieveCondition

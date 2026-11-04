@@ -96,6 +96,40 @@ function normalizeTypeName(typeName: string): string {
   return dotIndex >= 0 ? unwrapped.substring(dotIndex + 1) : unwrapped;
 }
 
+export function validateOclWhitespace(value: string, propertyName: 'QueriedProperty' | 'AchieveCondition'): string[] {
+  const errors: string[] = [];
+
+  if (/^\s/.test(value)) {
+    errors.push(`${propertyName} must not have leading whitespace.`);
+  }
+
+  if (/\s$/.test(value)) {
+    errors.push(`${propertyName} must not have trailing whitespace.`);
+  }
+
+  if (/\s+->|->\s+/.test(value)) {
+    errors.push(`${propertyName} must not contain spaces before or after '->'.`);
+  }
+
+  if (/\s+:/.test(value)) {
+    errors.push(`${propertyName} must not contain spaces before ':'.`);
+  }
+
+  if (/:\s{2,}/.test(value)) {
+    errors.push(`${propertyName} allows at most one space after ':'.`);
+  }
+
+  if (/\s{2,}\|/.test(value)) {
+    errors.push(`${propertyName} allows at most one space before '|'.`);
+  }
+
+  if (/\|\s{2,}/.test(value)) {
+    errors.push(`${propertyName} allows at most one space after '|'.`);
+  }
+
+  return errors;
+}
+
 function validateMemberAccessAgainstClass(
   expression: string,
   variableName: string,
@@ -137,6 +171,9 @@ export function validateQueriedProperty(value: string, classAttributes?: Map<str
     return errors;
   }
 
+  const whitespaceErrors = validateOclWhitespace(value, 'QueriedProperty');
+  errors.push(...whitespaceErrors);
+
   const trimmed = value.trim();
   // Check if the structure is correct
   const parsed = parseOcl<QueriedPropertyContext>(trimmed, parser => parser.queriedProperty());
@@ -148,7 +185,7 @@ export function validateQueriedProperty(value: string, classAttributes?: Map<str
   if (parsed.errors.length > 0) {
 
     const extraneousMatch = parsed.errors
-      .map(e => e.match(/extraneous input '([^']+)' expecting IDENT/i))
+      .map(e => e.match(/(?:extraneous|mismatched) input '([^']+)' expecting IDENT/i))
       .find(m => !!m) as RegExpMatchArray | undefined;
 
     if (extraneousMatch) {
@@ -168,6 +205,13 @@ export function validateQueriedProperty(value: string, classAttributes?: Map<str
   if (!collectionText || !identText) {
     errors.push(`QueriedProperty must follow OCL select syntax: queriedVar->select(queryVar : type | condition)`);
     return errors;
+  }
+
+  if (!parsed.tree.boolExpr() || !parsed.tree.boolExpr()?.text) {
+    if (!/\|\s+\)/.test(trimmed)) {
+      errors.push(`QueriedProperty must follow OCL select syntax: queriedVar->select(queryVar : type | condition)`);
+      return errors;
+    }
   }
 
   const queriedVar = getCollectionRefName(collectionText);
@@ -199,6 +243,9 @@ export function validateAchieveCondition(
   if (!value || value.trim() === '') {
     return errors;
   }
+
+  const whitespaceErrors = validateOclWhitespace(value, 'AchieveCondition');
+  errors.push(...whitespaceErrors);
 
   const trimmed = value.trim();
   const parsed = parseOcl<AchieveConditionContext>(trimmed, parser => parser.achieveCondition());
