@@ -12,25 +12,168 @@ import {
 	auxiliarGetContextFromDocument,
 	auxiliarGetErrorPositionFromJsonParseError,
 	auxiliarGetKnowledgeClassAttributeIndexForDocument,
+	auxiliarGetConfigurationForDocument,
+	auxiliarGetHddlForDocument,
+	extractTaskId,
+	extractTaskName,
+	ResolvedConfiguration,
+	ResolvedHddl,
 } from './getFunctions';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { Diagnostic, DiagnosticSeverity } from 'vscode-languageserver';
 import { validateAchieveCondition, validateQueriedProperty } from './oclParser';
 
 
+// Helper to find the range of "text": "..." property in a node
+export function findNodeTextRange(
+	nodeId: string,
+	text: string,
+): { startLine: number; startChar: number; endLine: number; endChar: number } | null {
+	const nodeIdPattern = new RegExp(`"id"\\s*:\\s*"${nodeId}"`, 'g');
+	const match = nodeIdPattern.exec(text);
+	if (!match) {
+		return null;
+	}
+
+	// Find the bounds of this node object
+	let objStart = text.lastIndexOf('{', match.index);
+	if (objStart === -1) {
+		objStart = match.index;
+	}
+
+	let objEnd = text.indexOf('}', match.index);
+	if (objEnd === -1) {
+		objEnd = text.length;
+	}
+
+	const nodeSlice = text.substring(objStart, objEnd + 1);
+	const textPropPattern = /"text"\s*:\s*"([^"]*)"/;
+	const textPropMatch = textPropPattern.exec(nodeSlice);
+
+	if (!textPropMatch) {
+		return null;
+	}
+
+	const propIndex = objStart + textPropMatch.index;
+	const colonIndex = textPropMatch[0].indexOf(':');
+	const valueQuoteStart = textPropMatch[0].indexOf('"', colonIndex >= 0 ? colonIndex : 0);
+	const valueQuoteEnd = textPropMatch[0].lastIndexOf('"');
+
+	const valueStartIndex = valueQuoteStart >= 0 ? propIndex + valueQuoteStart + 1 : propIndex;
+	const valueEndIndex = valueQuoteEnd > valueQuoteStart ? propIndex + valueQuoteEnd : propIndex + textPropMatch[0].length;
+
+	const startLines = text.substring(0, valueStartIndex).split('\n');
+	const startLine = startLines.length - 1;
+	const startChar = startLines[startLines.length - 1].length;
+
+	const endLines = text.substring(0, valueEndIndex).split('\n');
+	const endLine = endLines.length - 1;
+	const endChar = endLines[endLines.length - 1].length;
+
+	return { startLine, startChar, endLine, endChar };
+}
+
 // Validate individual goal or task node in .gm file
-function auxiliarValidateGmNode(
+export function auxiliarValidateGmNode(
 	node: GmNode,
 	text: string,
 	diagnostics: Diagnostic[],
 	classAttributes: Map<string, Set<string>>,
+	configResolution?: ResolvedConfiguration | null,
+	seenTaskIds?: Set<string>,
+	hddlResolution?: ResolvedHddl | null,
 ): void {
+	const nodeType = node.type;
+
+	// Validate Task name and binding for istar.Task nodes
+	if (nodeType === 'istar.Task') {
+		const taskText = typeof node.text === 'string' ? node.text : '';
+		const textRange = findNodeTextRange(node.id, text);
+		const range = textRange || { startLine: 0, startChar: 0, endLine: 0, endChar: taskText.length };
+
+		const taskId = extractTaskId(taskText);
+		if (!taskId) {
+			const diag = errors.taskInvalidNameFormatError(
+				range.startLine,
+				range.startChar,
+				range.endLine,
+				range.endChar,
+				taskText,
+			);
+			diag.data = { nodeId: node.id };
+			diagnostics.push(diag);
+		} else {
+			if (seenTaskIds) {
+				if (seenTaskIds.has(taskId)) {
+					const diag = errors.taskDuplicateIdError(
+						range.startLine,
+						range.startChar,
+						range.endLine,
+						range.endChar,
+						taskId,
+					);
+					diag.data = { nodeId: node.id };
+					diagnostics.push(diag);
+				} else {
+					seenTaskIds.add(taskId);
+				}
+			}
+
+			if (configResolution) {
+				const validTaskIds = Array.from(configResolution.taskIds).sort();
+				if (!configResolution.taskIds.has(taskId)) {
+					const diag = errors.taskMissingBindingError(
+						range.startLine,
+						range.startChar,
+						range.endLine,
+						range.endChar,
+						taskId,
+						taskText,
+						validTaskIds,
+					);
+					diag.data = { nodeId: node.id };
+					diagnostics.push(diag);
+				}
+			}
+
+			if (hddlResolution) {
+				const taskName = extractTaskName(taskText);
+				const validHddlTasks = Array.from(hddlResolution.tasks).sort();
+				if (!taskName) {
+					const diag = errors.taskMissingHddlDefinitionError(
+						range.startLine,
+						range.startChar,
+						range.endLine,
+						range.endChar,
+						"(empty)",
+						validHddlTasks,
+					);
+					diag.data = { nodeId: node.id };
+					diagnostics.push(diag);
+				} else {
+					const found = hddlResolution.taskLookup.has(taskName.toLowerCase());
+					if (!found) {
+						const diag = errors.taskMissingHddlDefinitionError(
+							range.startLine,
+							range.startChar,
+							range.endLine,
+							range.endChar,
+							taskName,
+							validHddlTasks,
+						);
+						diag.data = { nodeId: node.id };
+						diagnostics.push(diag);
+					}
+				}
+			}
+		}
+	}
+
 	if (!node.customProperties) {
 		return;
 	}
 
 	const properties = node.customProperties;
-	const nodeType = node.type;
 
 	// Determine context based on node type
 	let context = '';
@@ -183,6 +326,9 @@ export function auxiliarValidateGmFile(doc: TextDocument): Diagnostic[] {
 	const text = doc.getText();
 	const diagnostics: Diagnostic[] = [];
 	const classAttributes = auxiliarGetKnowledgeClassAttributeIndexForDocument(doc);
+	const configResolution = auxiliarGetConfigurationForDocument(doc);
+	const hddlResolution = auxiliarGetHddlForDocument(doc);
+	const seenTaskIds = new Set<string>();
 
 	try {
 		const gmData: GmFile = JSON.parse(text);
@@ -192,7 +338,15 @@ export function auxiliarValidateGmFile(doc: TextDocument): Diagnostic[] {
 			for (const actor of gmData.actors) {
 				if (actor.nodes && Array.isArray(actor.nodes)) {
 					for (const node of actor.nodes) {
-						auxiliarValidateGmNode(node, text, diagnostics, classAttributes);
+						auxiliarValidateGmNode(
+							node,
+							text,
+							diagnostics,
+							classAttributes,
+							configResolution,
+							seenTaskIds,
+							hddlResolution,
+						);
 					}
 				}
 			}
@@ -201,7 +355,15 @@ export function auxiliarValidateGmFile(doc: TextDocument): Diagnostic[] {
 		// Validate orphan nodes
 		if (gmData.orphans && Array.isArray(gmData.orphans)) {
 			for (const node of gmData.orphans) {
-				auxiliarValidateGmNode(node, text, diagnostics, classAttributes);
+				auxiliarValidateGmNode(
+					node,
+					text,
+					diagnostics,
+					classAttributes,
+					configResolution,
+					seenTaskIds,
+					hddlResolution,
+				);
 			}
 		}
 	} catch (error) {

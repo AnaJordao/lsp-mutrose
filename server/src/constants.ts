@@ -106,6 +106,77 @@ export const errors: ErrorsTypes = {
 		message: `Flow step '${stepName}' is not valid in ${currentContext}${currentGoalType ? ` (${currentGoalType})` : ""} context. Valid contexts: ${validContexts.join(", ")}`,
 		source: "MutRoSe Flow Validator",
 	}),
+	taskMissingBindingError: (
+		startLine: number,
+		startChar: number,
+		endLine: number,
+		endChar: number,
+		taskId: string,
+		taskText: string,
+		validTaskIds: string[],
+	): Diagnostic => ({
+		severity: DiagnosticSeverity.Error,
+		range: {
+			start: { line: startLine, character: startChar },
+			end: { line: endLine, character: endChar },
+		},
+		message: `Task ID '${taskId}' (from '${taskText}') does not match any binding in configuration.json.${
+			validTaskIds.length > 0
+				? ` Valid task IDs: ${validTaskIds.join(", ")}`
+				: " No task bindings found in configuration.json."
+		}`,
+		source: errorsSourceTypes.mutroseGMValidator,
+	}),
+	taskInvalidNameFormatError: (
+		startLine: number,
+		startChar: number,
+		endLine: number,
+		endChar: number,
+		taskText: string,
+	): Diagnostic => ({
+		severity: DiagnosticSeverity.Error,
+		range: {
+			start: { line: startLine, character: startChar },
+			end: { line: endLine, character: endChar },
+		},
+		message: `Task name '${taskText}' must start with a valid task ID prefix (e.g. 'AT1: TaskName' or 'AT1').`,
+		source: errorsSourceTypes.mutroseGMValidator,
+	}),
+	taskDuplicateIdError: (
+		startLine: number,
+		startChar: number,
+		endLine: number,
+		endChar: number,
+		taskId: string,
+	): Diagnostic => ({
+		severity: DiagnosticSeverity.Error,
+		range: {
+			start: { line: startLine, character: startChar },
+			end: { line: endLine, character: endChar },
+		},
+		message: `Duplicate task ID '${taskId}'. Each task in the goal model must have a unique ID.`,
+		source: errorsSourceTypes.mutroseGMValidator,
+	}),
+	taskMissingHddlDefinitionError: (
+		startLine: number,
+		startChar: number,
+		endLine: number,
+		endChar: number,
+		taskName: string,
+		validHddlTasks: string[],
+	): Diagnostic => ({
+		severity: DiagnosticSeverity.Error,
+		range: {
+			start: { line: startLine, character: startChar },
+			end: { line: endLine, character: endChar },
+		},
+		message: `Task '${taskName}' does not exist in HDDL domain definition.${
+			validHddlTasks.length > 0
+				? ` Available HDDL tasks: ${validHddlTasks.join(", ")}`
+				: " No tasks found in HDDL file."
+		}`,
+		source: errorsSourceTypes.mutroseGMValidator,
+	}),
 };
 
 export const attributeCompletions: AttributeCompletionsTypes = {

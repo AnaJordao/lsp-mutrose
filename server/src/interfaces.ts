@@ -45,6 +45,37 @@ export interface ErrorsTypes {
     currentGoalType: string | undefined,
     validContexts: string[]
   ): Diagnostic;
+  taskMissingBindingError(
+    startLine: number,
+    startChar: number,
+    endLine: number,
+    endChar: number,
+    taskId: string,
+    taskText: string,
+    validTaskIds: string[],
+  ): Diagnostic;
+  taskInvalidNameFormatError(
+    startLine: number,
+    startChar: number,
+    endLine: number,
+    endChar: number,
+    taskText: string,
+  ): Diagnostic;
+  taskDuplicateIdError(
+    startLine: number,
+    startChar: number,
+    endLine: number,
+    endChar: number,
+    taskId: string,
+  ): Diagnostic;
+  taskMissingHddlDefinitionError(
+    startLine: number,
+    startChar: number,
+    endLine: number,
+    endChar: number,
+    taskName: string,
+    validHddlTasks: string[],
+  ): Diagnostic;
 }
 
 export interface AttributeCompletionsTypes {
@@ -84,6 +115,29 @@ export interface OclAttributeCompletionContext {
 export interface VariableInfo {
   location: Location;
   value?: string;
+}
+
+export interface VarMappingEntry {
+  task_id: string;
+  map?: Array<{ gm_var: string; hddl_var: string }>;
+}
+
+export interface MutroseConfiguration {
+  var_mapping?: VarMappingEntry[];
+  world_db?: {
+    type?: string;
+    file_type?: string;
+    path?: string;
+    xml_root?: string;
+  };
+  output?: {
+    output_type?: string;
+    file_path?: string;
+    file_type?: string;
+  };
+  location_types?: string[];
+  type_mapping?: Array<{ hddl_type: string; ocl_type: string }>;
+  semantic_mapping?: unknown[];
 }
 
 export interface GmNode {

@@ -21,7 +21,8 @@ import {
 import { 
 	VariableInfo,
 	KnowledgeClassInfo, 
-	OclAttributeCompletionContext, 
+	OclAttributeCompletionContext,
+	MutroseConfiguration,
 } from '../interfaces';
 import { workspaceFolders, variableDefinitions } from '../server';
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -870,3 +871,210 @@ export function auxiliarGetHover(
 
 	return null;
 }
+
+export interface ResolvedConfiguration {
+	path: string;
+	taskIds: Set<string>;
+	config: MutroseConfiguration;
+}
+
+export function extractTaskId(taskText: string): string | null {
+	if (!taskText) {
+		return null;
+	}
+	const match = taskText.trim().match(/^(AT\d+)(?::\s*.*)?$/i);
+	return match ? match[1].toUpperCase() : null;
+}
+
+export function auxiliarGetConfigurationForDocument(
+	doc: TextDocument,
+): ResolvedConfiguration | null {
+	const gmFilePath = auxiliarGetFileUriToPath(doc.uri);
+	const gmDirName = path.dirname(gmFilePath);
+
+	const candidatePaths: string[] = [];
+
+	// 1. Relative configuration folder from the GM file
+	candidatePaths.push(path.resolve(gmDirName, "..", "configuration", "configuration.json"));
+	candidatePaths.push(path.resolve(gmDirName, "configuration", "configuration.json"));
+
+	// 2. Candidate paths in workspace folders
+	for (const folder of workspaceFolders) {
+		try {
+			const settingsPath = path.resolve(folder, ".vscode", "settings.json");
+			if (fs.existsSync(settingsPath)) {
+				const settingsRaw = fs.readFileSync(settingsPath, "utf8");
+				const settings = JSON.parse(settingsRaw);
+				if (settings && typeof settings["gmParser.configPath"] === "string") {
+					candidatePaths.unshift(path.resolve(folder, settings["gmParser.configPath"]));
+				}
+			}
+		} catch {
+			// ignore settings parse errors
+		}
+
+		candidatePaths.push(path.resolve(folder, "configuration", "configuration.json"));
+		candidatePaths.push(path.resolve(folder, "src", "test", "configuration", "configuration.json"));
+
+		const examplesDir = path.resolve(folder, "examples");
+		if (fs.existsSync(examplesDir)) {
+			try {
+				const entries = fs.readdirSync(examplesDir, { withFileTypes: true });
+				for (const entry of entries) {
+					if (entry.isDirectory()) {
+						candidatePaths.push(path.resolve(examplesDir, entry.name, "configuration", "configuration.json"));
+					}
+				}
+			} catch {
+				// ignore
+			}
+		}
+	}
+
+	for (const candidate of candidatePaths) {
+		if (fs.existsSync(candidate)) {
+			try {
+				const content = fs.readFileSync(candidate, "utf8");
+				const parsed = JSON.parse(content) as MutroseConfiguration;
+				const taskIds = new Set<string>();
+
+				if (Array.isArray(parsed.var_mapping)) {
+					for (const entry of parsed.var_mapping) {
+						if (entry && typeof entry.task_id === "string" && entry.task_id.trim()) {
+							taskIds.add(entry.task_id.trim().toUpperCase());
+						}
+					}
+				}
+
+				return {
+					path: candidate,
+					taskIds,
+					config: parsed,
+				};
+			} catch {
+				// continue
+			}
+		}
+	}
+
+	return null;
+}
+
+export interface ResolvedHddl {
+	path: string;
+	tasks: Set<string>;
+	taskLookup: Map<string, string>;
+}
+
+export function extractTaskName(taskText: string): string | null {
+	if (!taskText) {
+		return null;
+	}
+	const match = taskText.trim().match(/^AT\d+\s*:\s*([A-Za-z0-9_-]+)/i);
+	return match ? match[1] : null;
+}
+
+export function parseHddlTasks(hddlContent: string): { tasks: Set<string>; taskLookup: Map<string, string> } {
+	const taskRegex = /\(:task\s+([A-Za-z0-9_-]+)/gi;
+	const tasks = new Set<string>();
+	const taskLookup = new Map<string, string>();
+
+	let match: RegExpExecArray | null;
+	while ((match = taskRegex.exec(hddlContent)) !== null) {
+		const name = match[1];
+		tasks.add(name);
+		taskLookup.set(name.toLowerCase(), name);
+	}
+
+	return { tasks, taskLookup };
+}
+
+export function auxiliarGetHddlForDocument(
+	doc: TextDocument,
+): ResolvedHddl | null {
+	const gmFilePath = auxiliarGetFileUriToPath(doc.uri);
+	const gmDirName = path.dirname(gmFilePath);
+
+	const candidatePaths: string[] = [];
+
+	// 1. Settings from workspace folders (e.g. gmParser.hddlPath)
+	for (const folder of workspaceFolders) {
+		try {
+			const settingsPath = path.resolve(folder, ".vscode", "settings.json");
+			if (fs.existsSync(settingsPath)) {
+				const settingsRaw = fs.readFileSync(settingsPath, "utf8");
+				const settings = JSON.parse(settingsRaw);
+				if (settings && typeof settings["gmParser.hddlPath"] === "string") {
+					candidatePaths.unshift(path.resolve(folder, settings["gmParser.hddlPath"]));
+				}
+			}
+		} catch {
+			// ignore
+		}
+	}
+
+	// 2. Candidate directories relative to GM file
+	const candidateDirs = [
+		path.resolve(gmDirName, "..", "hddl"),
+		path.resolve(gmDirName, "hddl"),
+	];
+
+	for (const folder of workspaceFolders) {
+		candidateDirs.push(path.resolve(folder, "hddl"));
+		candidateDirs.push(path.resolve(folder, "src", "test", "hddl"));
+
+		const examplesDir = path.resolve(folder, "examples");
+		if (fs.existsSync(examplesDir)) {
+			try {
+				const entries = fs.readdirSync(examplesDir, { withFileTypes: true });
+				for (const entry of entries) {
+					if (entry.isDirectory()) {
+						candidateDirs.push(path.resolve(examplesDir, entry.name, "hddl"));
+					}
+				}
+			} catch {
+				// ignore
+			}
+		}
+	}
+
+	for (const dir of candidateDirs) {
+		if (fs.existsSync(dir)) {
+			try {
+				const stat = fs.statSync(dir);
+				if (stat.isDirectory()) {
+					const files = fs.readdirSync(dir).filter((f) => f.toLowerCase().endsWith(".hddl"));
+					for (const file of files) {
+						candidatePaths.push(path.join(dir, file));
+					}
+				}
+			} catch {
+				// ignore
+			}
+		}
+	}
+
+	for (const candidate of candidatePaths) {
+		if (fs.existsSync(candidate)) {
+			try {
+				const stat = fs.statSync(candidate);
+				if (stat.isFile()) {
+					const content = fs.readFileSync(candidate, "utf8");
+					const { tasks, taskLookup } = parseHddlTasks(content);
+					return {
+						path: candidate,
+						tasks,
+						taskLookup,
+					};
+				}
+			} catch {
+				// continue
+			}
+		}
+	}
+
+	return null;
+}
+
+
+
